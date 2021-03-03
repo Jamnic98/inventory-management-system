@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --detectOpenHandles",
-    "test:watch": "jest --watchAll --detectOpenHandles --runInBand"
+    "test": "jest",
+    "test:watch": "jest --watchAll"
   },
   "jest": {
     "transform": {
