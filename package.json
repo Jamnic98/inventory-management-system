@@ -1,0 +1,25 @@
+{
+  "name": "inventory_management_system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "client": "cd client && npm start",
+    "server": "cd server && npm start",
+    "dev": "concurrently -k --kill-others-on-fail \"cd client && npm start\" \"cd server && npm run dev\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jamnic98/inventory-management-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Jamnic98/inventory-management-system/issues"
+  },
+  "homepage": "https://github.com/Jamnic98/inventory-management-system#readme",
+  "devDependencies": {
+    "concurrently": "^5.3.0"
+  }
+}
