@@ -9,14 +9,12 @@ const itemSchema = mongoose.Schema({
   lowStockAlert: Boolean,
 });
 
-export const CurrentItem = mongoose.model(
-  'CurrentItem',
-  itemSchema,
-  'current_items'
-);
+const CurrentItem = mongoose.model('CurrentItem', itemSchema, 'current_items');
 
-export const PreviousItem = mongoose.model(
+const PreviousItem = mongoose.model(
   'PreviousItem',
   itemSchema,
   'previous_items'
 );
+
+export { CurrentItem, PreviousItem };
