@@ -103,10 +103,6 @@ export default function EnhancedTable(props) {
   const [page, setPage] = useState(0);
   const [filterWord, setFilterWord] = useState('');
   const [filteredData, setFilteredData] = useState([]);
-  console.log(
-    '🚀 ~ file: item-table.js ~ line 106 ~ EnhancedTable ~ filteredData',
-    filteredData
-  );
 
   useEffect(() => {
     const regEx = new RegExp(filterWord, 'i');
@@ -194,7 +190,7 @@ export default function EnhancedTable(props) {
                       role='checkbox'
                       aria-checked={isItemSelected}
                       tabIndex={-1}
-                      key={row.name}
+                      key={row._id}
                       selected={isItemSelected}
                     >
                       <TableCell padding='checkbox'>
@@ -243,7 +239,7 @@ export default function EnhancedTable(props) {
           variant='outlined'
         ></TextField>
         <TablePagination
-          rowsPerPageOptions={0}
+          rowsPerPageOptions={[0]}
           component='div'
           count={filteredData.length}
           rowsPerPage={ROWS_PER_PAGE}
