@@ -71,16 +71,23 @@ describe('Test the current items endpoint', () => {
     expect.assertions(Object.keys(currentItems[0]));
     const { _id } = currentItems[0];
     const response = await request.get(`/current-items/${_id}`).expect(200);
-    const { name, room, location, lowStockAlert } = response.body;
+    const {
+      name,
+      room,
+      location,
+      expirationDate,
+      lowStockAlert,
+    } = response.body;
     expect(name).toBeTruthy();
     expect(room).toBeTruthy();
     expect(location).toBeTruthy();
+    expect(expirationDate).toBeTruthy();
     expect(lowStockAlert).not.toBeNull();
     done();
   });
 
   test('add item', async (done) => {
-    expect.assertions(1);
+    expect.assertions(5);
     const item = {
       _id: createUniqueID(),
       name: 'sweetcorn',
@@ -94,27 +101,60 @@ describe('Test the current items endpoint', () => {
       .post('/current-items/add')
       .send(item)
       .expect(200);
-    expect(response.body).toBe(`${item.name} added.`);
+    const {
+      name,
+      room,
+      location,
+      expirationDate,
+      lowStockAlert,
+    } = response.body;
+    expect(name).toBeTruthy();
+    expect(room).toBeTruthy();
+    expect(location).toBeTruthy();
+    expect(expirationDate).toBeTruthy();
+    expect(lowStockAlert).not.toBeNull();
     done();
   });
 
   test('update item by id', async (done) => {
-    expect.assertions(1);
+    expect.assertions(5);
     const item = currentItems[1];
     const updatedItem = { quantity: item.quantity - 1, ...item };
     const response = await request
       .put(`/current-items/update/${item._id}`)
       .send(updatedItem)
       .expect(200);
-    expect(response.body).toBe(`${item.name} updated.`);
+    const {
+      name,
+      room,
+      location,
+      expirationDate,
+      lowStockAlert,
+    } = response.body;
+    expect(name).toBeTruthy();
+    expect(room).toBeTruthy();
+    expect(location).toBeTruthy();
+    expect(expirationDate).toBeTruthy();
+    expect(lowStockAlert).not.toBeNull();
     done();
   });
 
   test('delete item by id', async (done) => {
-    expect.assertions(1);
-    const { _id, name } = currentItems[0];
+    expect.assertions(5);
+    const { _id } = currentItems[0];
     const response = await request.delete(`/current-items/${_id}`).expect(200);
-    expect(response.body).toBe(`${name} deleted.`);
+    const {
+      name,
+      room,
+      location,
+      expirationDate,
+      lowStockAlert,
+    } = response.body;
+    expect(name).toBeTruthy();
+    expect(room).toBeTruthy();
+    expect(location).toBeTruthy();
+    expect(expirationDate).toBeTruthy();
+    expect(lowStockAlert).not.toBeNull();
     done();
   });
 });

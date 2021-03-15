@@ -7,22 +7,24 @@ import TableContainer from '@material-ui/core/TableContainer';
 import TableHead from '@material-ui/core/TableHead';
 import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
-import Paper from '@material-ui/core/Paper';
 import Checkbox from '@material-ui/core/Checkbox';
 import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+import Box from '@material-ui/core/Box';
 
 const ROWS_PER_PAGE = 5;
+const ROW_HEIGHT = 52.2;
 
 const headCells = [
   {
-    id: 'name',
+    id: 'item',
     numeric: false,
     disablePadding: true,
-    label: 'Name',
+    label: 'Item',
   },
   { id: 'quantity', numeric: true, disablePadding: false, label: 'Quantity' },
-  { id: 'room', numeric: false, disablePadding: false, label: 'Room' },
-  { id: 'location', numeric: false, disablePadding: false, label: 'Location' },
+  { id: 'room', numeric: true, disablePadding: false, label: 'Room' },
+  { id: 'location', numeric: true, disablePadding: false, label: 'Location' },
   {
     id: 'expirationDate',
     numeric: true,
@@ -39,6 +41,7 @@ const headCells = [
 
 function EnhancedTableHead(props) {
   const { onSelectAllClick, numSelected, rowCount } = props;
+  const classes = useStyles();
 
   return (
     <TableHead>
@@ -54,10 +57,10 @@ function EnhancedTableHead(props) {
         {headCells.map((headCell) => (
           <TableCell
             key={headCell.id}
-            align={headCell.numeric ? 'center' : 'left'}
+            align={headCell.numeric ? 'center' : 'center'}
             padding={headCell.disablePadding ? 'none' : 'default'}
           >
-            {headCell.label}
+            <div className={classes.textContainer}>{headCell.label}</div>
           </TableCell>
         ))}
       </TableRow>
@@ -68,19 +71,29 @@ function EnhancedTableHead(props) {
 const useStyles = makeStyles((theme) => ({
   root: {
     width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   paper: {
     width: '100%',
     marginBottom: theme.spacing(2),
   },
-  table: {
-    minWidth: 750,
+  tableContainer: {
+    minHeight: `${100 + (ROWS_PER_PAGE - 1) * ROW_HEIGHT}px`,
   },
   tableRow: {
     cursor: 'pointer',
   },
-  tableContainer: {
-    minHeight: 220,
+  textContainer: {
+    display: 'block',
+    /* width: '100%', */
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  tablePagination: {
+    display: 'flex',
   },
   visuallyHidden: {
     border: 0,
@@ -96,13 +109,17 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export default function EnhancedTable(props) {
-  const { allItems } = props;
+  const { allItems, deleteItemById, addItem, setAllItems } = props;
 
   const classes = useStyles();
   const [selected, setSelected] = useState([]);
   const [page, setPage] = useState(0);
   const [filterWord, setFilterWord] = useState('');
-  const [filteredData, setFilteredData] = useState([]);
+  const [filteredItems, setFilteredData] = useState([]);
+
+  const emptyRows =
+    ROWS_PER_PAGE -
+    Math.min(ROWS_PER_PAGE, filteredItems.length - page * ROWS_PER_PAGE);
 
   useEffect(() => {
     const regEx = new RegExp(filterWord, 'i');
@@ -119,19 +136,19 @@ export default function EnhancedTable(props) {
 
   const handleSelectAllClick = (event) => {
     if (event.target.checked) {
-      const newSelecteds = filteredData.map((n) => n.name);
+      const newSelecteds = filteredItems.map((n) => n._id);
       setSelected(newSelecteds);
     } else {
       setSelected([]);
     }
   };
 
-  const handleClick = (_event, name) => {
-    const selectedIndex = selected.indexOf(name);
+  const handleClick = (_event, _id) => {
+    const selectedIndex = selected.indexOf(_id);
     let newSelected = [];
 
     if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, name);
+      newSelected = newSelected.concat(selected, _id);
     } else if (selectedIndex === 0) {
       newSelected = newSelected.concat(selected.slice(1));
     } else if (selectedIndex === selected.length - 1) {
@@ -150,103 +167,141 @@ export default function EnhancedTable(props) {
     setPage(newPage);
   };
 
-  const isSelected = (name) => selected.indexOf(name) !== -1;
+  const isSelected = (_id) => selected.indexOf(_id) !== -1;
 
-  const emptyRows =
-    ROWS_PER_PAGE -
-    Math.min(ROWS_PER_PAGE, filteredData.length - page * ROWS_PER_PAGE);
-
-  return (
-    <div className={classes.root}>
-      <Paper className={classes.paper}>
+  const setOutput = () => {
+    return (
+      <Box py={1}>
+        <Box mx={1}>
+          <Button onClick={addItem} variant='outlined'>
+            add
+          </Button>
+          <Button
+            //TODO: sort this shit out
+            onClick={async () => {
+              if (selected.length > 0) {
+                const id = selected[0];
+                deleteItemById(id);
+                const updatedItems = allItems.filter((item) => item._id !== id);
+                setAllItems(updatedItems);
+                setSelected([]);
+              }
+            }}
+            variant='outlined'
+          >
+            DELETE
+          </Button>
+        </Box>
         <TableContainer className={classes.tableContainer}>
           <Table
             className={classes.table}
             aria-labelledby='tableTitle'
-            size='small'
             aria-label='enhanced table'
           >
             <EnhancedTableHead
               classes={classes}
               numSelected={selected.length}
               onSelectAllClick={handleSelectAllClick}
-              rowCount={filteredData.length}
+              rowCount={filteredItems.length}
             />
             <TableBody>
-              {filteredData
+              {filteredItems
                 .slice(
                   page * ROWS_PER_PAGE,
                   page * ROWS_PER_PAGE + ROWS_PER_PAGE
                 )
                 .map((row, index) => {
-                  const isItemSelected = isSelected(row.name);
+                  const isItemSelected = isSelected(row._id);
                   const labelId = `enhanced-table-checkbox-${index}`;
 
                   return (
                     <TableRow
                       className={classes.tableRow}
                       hover
-                      onClick={(event) => handleClick(event, row.name)}
+                      onClick={(event) => handleClick(event, row._id)}
                       role='checkbox'
                       aria-checked={isItemSelected}
                       tabIndex={-1}
                       key={row._id}
                       selected={isItemSelected}
                     >
-                      <TableCell padding='checkbox'>
+                      <TableCell
+                        className={classes.tableCell}
+                        padding='checkbox'
+                      >
                         <Checkbox
                           checked={isItemSelected}
                           inputProps={{ 'aria-labelledby': labelId }}
                         />
                       </TableCell>
                       <TableCell
+                        className={classes.tableCell}
                         component='th'
                         id={labelId}
                         scope='row'
                         padding='none'
-                        align='left'
+                        align='center'
                       >
-                        {row.name}
+                        <div className={classes.textContainer}>{row.name}</div>
                       </TableCell>
-                      <TableCell align='center'>{row.quantity}</TableCell>
-                      <TableCell align='left'>{row.room}</TableCell>
-                      <TableCell align='left'>{row.location}</TableCell>
-                      <TableCell align='center'>
-                        {new Date(row.expirationDate).toLocaleDateString()}
+                      <TableCell className={classes.tableCell} align='center'>
+                        <div className={classes.textContainer}>
+                          {row.quantity}
+                        </div>
                       </TableCell>
-                      <TableCell align='center'>
-                        {row.lowStockAlert.toString()}
+                      <TableCell className={classes.tableCell} align='center'>
+                        <div className={classes.textContainer}>{row.room}</div>
+                      </TableCell>
+                      <TableCell className={classes.tableCell} align='center'>
+                        <div className={classes.textContainer}>
+                          {row.location}
+                        </div>
+                      </TableCell>
+                      <TableCell className={classes.tableCell} align='center'>
+                        <div className={classes.textContainer}>
+                          {new Date(row.expirationDate).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell className={classes.tableCell} align='center'>
+                        <div className={classes.textContainer}>
+                          {row.lowStockAlert.toString()}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               {emptyRows > 0 && (
-                <TableRow style={{ height: 33 * emptyRows }}>
+                <TableRow style={{ height: ROW_HEIGHT * emptyRows }}>
                   <TableCell colSpan={7} />
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
-        <TextField
-          onChange={(e) => {
-            setPage(0);
-            setFilterWord(e.target.value.trim().toLowerCase());
-          }}
-          fullWidth
-          margin='dense'
-          label='Search by item name'
-          variant='outlined'
-        ></TextField>
-        <TablePagination
-          rowsPerPageOptions={[0]}
-          component='div'
-          count={filteredData.length}
-          rowsPerPage={ROWS_PER_PAGE}
-          page={page}
-          onChangePage={handleChangePage}
-        />
-      </Paper>
-    </div>
-  );
+        <Box mx={2}>
+          <TextField
+            onChange={(e) => {
+              setPage(0);
+              setFilterWord(e.target.value.trim().toLowerCase());
+            }}
+            fullWidth
+            margin='dense'
+            label='Search by item'
+            variant='outlined'
+          ></TextField>
+          <TablePagination
+            className={classes.tablePagination}
+            rowsPerPageOptions={[0]}
+            component='div'
+            count={filteredItems.length}
+            rowsPerPage={ROWS_PER_PAGE}
+            page={page}
+            onChangePage={handleChangePage}
+          />
+        </Box>
+      </Box>
+    );
+  };
+
+  return setOutput();
 }

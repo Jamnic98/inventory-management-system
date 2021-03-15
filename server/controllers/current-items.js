@@ -2,8 +2,7 @@ import { CurrentItem } from '../models/item.model.js';
 
 const getItems = async (_req, res) => {
   try {
-    const allItems = await CurrentItem.find();
-    res.json(allItems);
+    res.json(await CurrentItem.find());
   } catch (err) {
     res.status(400).send();
     console.error(err);
@@ -21,8 +20,7 @@ const getItemByID = async (req, res) => {
 
 const addItem = async (req, res) => {
   try {
-    const item = await CurrentItem.create(req.body);
-    res.json(`${item.name} added.`);
+    res.json(await CurrentItem.create(req.body));
   } catch (err) {
     res.status(400).send();
     console.error(err);
@@ -44,11 +42,10 @@ const updateItemByID = async (req, res) => {
       quantity: Number(quantity),
       room,
       location,
-      expirationDate:
-        expirationDate !== null ? Date.parse(expirationDate) : null,
+      expirationDate: Date.parse(expirationDate),
       lowStockAlert: lowStockAlert === 'true',
     });
-    res.json(`${updatedItem.name} updated.`);
+    res.json(updatedItem);
   } catch (err) {
     res.status(400).send();
     console.error(err);
@@ -57,8 +54,7 @@ const updateItemByID = async (req, res) => {
 
 const deleteItemByID = async (req, res) => {
   try {
-    const item = await CurrentItem.findByIdAndDelete(req.params.id);
-    res.json(`${item.name} deleted.`);
+    res.json(await CurrentItem.findByIdAndDelete(req.params.id));
   } catch (err) {
     res.status(400).send();
     console.error(err);

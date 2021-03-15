@@ -53,7 +53,7 @@ describe('Test the previous items endpoint', () => {
   });
 
   test('add item', async (done) => {
-    expect.assertions(1);
+    expect.assertions(4);
     const item = {
       _id: createUniqueID(),
       name: 'hand soap',
@@ -65,15 +65,23 @@ describe('Test the previous items endpoint', () => {
       .post('/previous-items/add')
       .send(item)
       .expect(200);
-    expect(response.body).toBe(`${item.name} added.`);
+    const { name, room, location, lowStockAlert } = response.body;
+    expect(name).toBeTruthy();
+    expect(room).toBeTruthy();
+    expect(location).toBeTruthy();
+    expect(lowStockAlert).not.toBeNull();
     done();
   });
 
   test('delete item by id', async (done) => {
-    expect.assertions(1);
-    const { _id, name } = previousItems[0];
+    expect.assertions(4);
+    const { _id } = previousItems[0];
     const response = await request.delete(`/previous-items/${_id}`).expect(200);
-    expect(response.body).toBe(`${name} deleted.`);
+    const { name, room, location, lowStockAlert } = response.body;
+    expect(name).toBeTruthy();
+    expect(room).toBeTruthy();
+    expect(location).toBeTruthy();
+    expect(lowStockAlert).not.toBeNull();
     done();
   });
 });

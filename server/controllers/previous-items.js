@@ -2,8 +2,7 @@ import { PreviousItem } from '../models/item.model.js';
 
 const getItems = async (_req, res) => {
   try {
-    const allItems = await PreviousItem.find();
-    res.json(allItems);
+    res.json(await PreviousItem.find());
   } catch (err) {
     res.status(400).send();
     console.error(err);
@@ -12,8 +11,7 @@ const getItems = async (_req, res) => {
 
 const addItem = async (req, res) => {
   try {
-    const item = await PreviousItem.create(req.body);
-    res.json(`${item.name} added.`);
+    res.json(await PreviousItem.create(req.body));
   } catch (err) {
     res.status(400).send();
     console.error(err);
@@ -22,8 +20,7 @@ const addItem = async (req, res) => {
 
 const deleteItemByID = async (req, res) => {
   try {
-    const item = await PreviousItem.findByIdAndDelete(req.params.id);
-    res.json(`${item.name} deleted.`);
+    res.json(await PreviousItem.findByIdAndDelete(req.params.id));
   } catch (err) {
     res.status(400).send();
     console.error(err);
