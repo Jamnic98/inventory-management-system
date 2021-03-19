@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
@@ -36,6 +36,8 @@ const useStyles = makeStyles((theme) => ({
 export default function PageHeader(props) {
   const classes = useStyles();
 
+  const { openSettings } = props;
+
   return (
     <div className={classes.root}>
       <CssBaseline />
@@ -44,8 +46,8 @@ export default function PageHeader(props) {
           <Typography variant='h6' noWrap>
             Inventory Management System
           </Typography>
-          <Button className={classes.button}>
-            <SettingsIcon />
+          <Button className={classes.button} onClick={openSettings}>
+            <SettingsIcon style={{ color: 'white' }} />
           </Button>
         </Toolbar>
       </AppBar>

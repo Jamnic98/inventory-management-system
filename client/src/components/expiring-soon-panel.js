@@ -8,8 +8,6 @@ import TableHead from '@material-ui/core/TableHead';
 import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
-import Typography from '@material-ui/core/Typography';
-import { Box } from '@material-ui/core';
 
 const ROWS_PER_PAGE = 6;
 const ROW_HEIGHT = 32.2;
@@ -47,9 +45,6 @@ const useStyles = makeStyles((theme) => ({
   tableContainer: {
     minHeight: `${100 + (ROWS_PER_PAGE - 1) * ROW_HEIGHT}px`,
   },
-  tableRow: {
-    cursor: 'pointer',
-  },
   tableCell: {
     width: '25%',
   },
@@ -81,10 +76,22 @@ function ExpiringSoonPanel(props) {
 
   const classes = useStyles();
   const [page, setPage] = useState(0);
+  const [filteredData, setFilteredData] = useState([]);
+
+  useEffect(() => {
+    const data = tableData
+      .filter((item) => {
+        const date = item.expirationDate;
+        return parseInt(Date.parse(date)) !== 0;
+      })
+      .sort()
+      .reverse();
+    setFilteredData(data);
+  }, [tableData]);
 
   const emptyRows =
     ROWS_PER_PAGE -
-    Math.min(ROWS_PER_PAGE, tableData.length - page * ROWS_PER_PAGE);
+    Math.min(ROWS_PER_PAGE, filteredData.length - page * ROWS_PER_PAGE);
 
   const handleChangePage = (_event, newPage) => {
     setPage(newPage);
@@ -112,7 +119,7 @@ function ExpiringSoonPanel(props) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tableData
+              {filteredData
                 .slice(
                   page * ROWS_PER_PAGE,
                   page * ROWS_PER_PAGE + ROWS_PER_PAGE
@@ -121,13 +128,7 @@ function ExpiringSoonPanel(props) {
                   const labelId = `enhanced-table-checkbox-${index}`;
 
                   return (
-                    <TableRow
-                      className={classes.tableRow}
-                      hover
-                      role='checkbox'
-                      tabIndex={-1}
-                      key={row._id}
-                    >
+                    <TableRow tabIndex={-1} key={row._id}>
                       <TableCell
                         className={classes.tableCell}
                         component='th'
@@ -166,7 +167,7 @@ function ExpiringSoonPanel(props) {
           className={classes.tablePagination}
           rowsPerPageOptions={[0]}
           component='div'
-          count={tableData.length}
+          count={filteredData.length}
           rowsPerPage={ROWS_PER_PAGE}
           page={page}
           onChangePage={handleChangePage}

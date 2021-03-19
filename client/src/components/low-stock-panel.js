@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
@@ -27,10 +27,19 @@ function LowStockPanel(props) {
   const { listItems } = props;
   const classes = useStyles();
 
+  const [filteredData, setFilteredData] = useState([]);
+
+  useEffect(() => {
+    const filteredList = listItems.filter((item) => {
+      return item.lowStockAlert;
+    });
+    setFilteredData(filteredList);
+  }, [listItems]);
+
   return (
     <Box py={1}>
       <List dense className={classes.root}>
-        {listItems.map((item, index) => {
+        {filteredData.map((item, index) => {
           return (
             <ListItem key={index}>
               <ArrowRightOutlinedIcon fontSize='small' />
