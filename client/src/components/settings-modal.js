@@ -5,7 +5,7 @@ import SimpleModal from './simple-modal.js';
 export default function SettingsModal(props) {
   const { isOpen, closeSettings } = props;
 
-  const modalStyle = { width: '85%', height: '500px' };
+  const modalStyle = { maxWidth: '400px', width: '80%', height: '500px' };
 
   return (
     <SimpleModal

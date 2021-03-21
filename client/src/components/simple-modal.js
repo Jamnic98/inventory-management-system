@@ -11,26 +11,21 @@ const useStyles = makeStyles((theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'auto',
   },
   paper: {
-    maxHeight: '80vh',
     maxWidth: '80vw',
+    maxheight: '80vh',
     top: '15%',
-    margin: 'auto',
+    marginLeft: 'auto',
+    marginRight: 'auto',
     position: 'absolute',
     backgroundColor: theme.palette.background.paper,
     border: '1px solid #000',
     outline: 'none',
   },
-  modalContentContainer: {
-    height: '80%',
-    overflow: 'auto',
-  },
   cancelButton: {
-    position: 'absolute',
-    top: '0',
-    right: '0',
-    padding: '0.5em',
+    float: 'right',
   },
 }));
 
@@ -53,7 +48,7 @@ export default function SimpleModal(props) {
       className={classes.modal}
     >
       <div style={modalStyle} className={`${classes.paper}`}>
-        <Box mx={1} mt={1}>
+        <Box m={1} p={1}>
           <Button
             tabIndex={-1}
             className={classes.cancelButton}

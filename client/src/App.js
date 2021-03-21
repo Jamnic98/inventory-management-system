@@ -11,11 +11,10 @@ import RemoveItemModal from './components/remove-item-modal.js';
 import LowStockPanel from './components/low-stock-panel.js';
 import MainTable from './components/main-table.js';
 import SnackBar from '@material-ui/core/SnackBar';
-import Slide from '@material-ui/core/Slide';
 import Alert from '@material-ui/lab/Alert';
 import axios from 'axios';
 
-const socket = new WebSocket('ws://localhost:8080');
+const socket = new WebSocket('ws://192.168.68.116:8080');
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -28,7 +27,7 @@ function App() {
   const [alert, setAlert] = useState(null);
   const [allItems, setAllItems] = useState([]);
   const [itemsToModify, setItemsToModify] = useState([]);
-  const [settings, setSettings] = useState(false);
+  const [settings, setSettings] = useState(true);
   const [removing, setRemoving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -76,10 +75,8 @@ function App() {
   const updateItemById = async (updatedItem) => {
     try {
       const { _id } = updatedItem;
-      const response = await axios.put(
-        `/current-items/update/${_id}`,
-        updatedItem
-      );
+      await axios.put(`/current-items/update/${_id}`, updatedItem);
+      socket.send('update');
     } catch (error) {
       console.error(error);
     }

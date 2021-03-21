@@ -1,11 +1,16 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, { useState } from 'react';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
 import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
+import RoomLocationTab from './room-location-tab.js';
+import RoomLocationTree from './room-location-tree.js';
+import IconButton from '@material-ui/core/IconButton';
+import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd';
+import AddIcon from '@material-ui/icons/Add';
+import DeleteIcon from '@material-ui/icons/Delete';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -18,11 +23,7 @@ function TabPanel(props) {
       aria-labelledby={`full-width-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box p={3}>
-          <Typography>{children}</Typography>
-        </Box>
-      )}
+      {value === index && <Box p={3}>{children}</Box>}
     </div>
   );
 }
@@ -38,13 +39,20 @@ const useStyles = makeStyles((theme) => ({
   root: {
     backgroundColor: 'theme.palette.background.paper',
     width: '100%',
+    height: '100%',
+  },
+  tabPanel: {
+    width: '100%',
+    height: '100%',
+    marginLeft: 'auto',
+    marginRight: 'auto',
   },
 }));
 
 export default function SettingsTabs() {
   const classes = useStyles();
   const theme = useTheme();
-  const [value, setValue] = React.useState(0);
+  const [value, setValue] = useState(0);
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
@@ -61,20 +69,24 @@ export default function SettingsTabs() {
           variant='fullWidth'
           aria-label='settings'
         >
-          <Tab label='Item One' {...a11yProps(0)} />
-          <Tab label='Item Two' {...a11yProps(1)} />
-          <Tab label='Item Three' {...a11yProps(2)} />
+          <Tab label='Rooms & Locations' {...a11yProps(0)} />
+          <Tab label='Email' {...a11yProps(1)} />
         </Tabs>
       </AppBar>
-      <TabPanel value={value} index={0} dir={theme.direction}>
-        Item One
+      <TabPanel
+        className={classes.tabPanel}
+        value={value}
+        index={0}
+        dir={theme.direction}
+      >
+        <RoomLocationTab />
       </TabPanel>
-      <TabPanel value={value} index={1} dir={theme.direction}>
-        Item Two
-      </TabPanel>
-      <TabPanel value={value} index={2} dir={theme.direction}>
-        Item Three
-      </TabPanel>
+      <TabPanel
+        className={classes.tabPanel}
+        value={value}
+        index={1}
+        dir={theme.direction}
+      ></TabPanel>
     </div>
   );
 }

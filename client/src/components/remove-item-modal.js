@@ -13,7 +13,7 @@ import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
 
 const useStyles = makeStyles(() => ({
   modalContentContainer: {
-    maxHeight: '500px',
+    maxHeight: '60vh',
     overflow: 'auto',
   },
   bottom: {
@@ -38,7 +38,7 @@ export default function RemoveItemModal(props) {
   const classes = useStyles();
 
   const modalStyle = {
-    width: '85%',
+    minWidth: '85%',
   };
 
   const [modalList, setModalList] = useState([]);
@@ -72,18 +72,18 @@ export default function RemoveItemModal(props) {
   };
 
   const handleConfirmButton = () => {
-    let modifiedItems = [];
+    let modifiedItems = [...allItems];
     modalList.forEach((listItem) => {
       const { _id, selected, quantity } = listItem;
       if (selected === quantity) {
-        modifiedItems = allItems.filter((item) => {
+        modifiedItems = modifiedItems.filter((item) => {
           return item._id !== listItem._id;
         });
         deleteItemById(_id);
       } else {
         const { selected, ...rest } = listItem;
         const updatedItem = { ...rest, quantity: quantity - selected };
-        modifiedItems = allItems.map((item) => {
+        modifiedItems = modifiedItems.map((item) => {
           return item._id === updatedItem._id ? updatedItem : item;
         });
         updateItemById(updatedItem);

@@ -1,0 +1,8 @@
+.selected {
+  background-color: #dc004e;
+  border-radius: 5px;
+}
+
+.selected input {
+  color: white;
+}

@@ -3,6 +3,7 @@ import ws from 'ws';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import app from './server.js';
+import sendMessage from './emailer.js';
 
 dotenv.config();
 
@@ -18,10 +19,25 @@ wsServer.on('close', async () => {
 });
 
 wsServer.on('connection', (ws) => {
-  ws.on('message', () => {
+  console.log('web socket connected');
+  ws.on('message', (message) => {
     wsServer.clients.forEach((client) => {
-      if (client !== ws && client.readyState === 1) {
-        client.send();
+      switch (message) {
+        case 'add':
+        case 'delete':
+        case 'update':
+          if (client !== ws && client.readyState === 1) {
+            client.send();
+          }
+          break;
+        case 'email':
+          sendMessage('Test', 'Hello!', 'I.M.S', [
+            'jamiestimpson30@gmail.com',
+            'jamiestimpson40@gmail.com',
+          ]);
+          break;
+        default:
+          break;
       }
     });
   });
