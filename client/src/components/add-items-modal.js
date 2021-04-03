@@ -24,12 +24,11 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-export default function RemoveItemModal(props) {
+export default function AddItemsModal(props) {
   const {
     isOpen,
-    closeRemoveModal,
-    itemsToRemove,
-    deleteItemById,
+    closeModal,
+    itemsToAdd,
     updateItemById,
     setItemsToModify,
     allItems,
@@ -44,12 +43,12 @@ export default function RemoveItemModal(props) {
   const [modalList, setModalList] = useState([]);
 
   useEffect(() => {
-    const list = itemsToRemove.map((item) => {
+    const list = itemsToAdd.map((item) => {
       const selected = item.selected || 1;
       return { selected: selected, ...item };
     });
     setModalList(list);
-  }, [itemsToRemove]);
+  }, [itemsToAdd]);
 
   const handleAddButton = (itemID) => {
     const updatedList = modalList.map((listItem) => {
@@ -74,31 +73,24 @@ export default function RemoveItemModal(props) {
   const handleConfirmButton = () => {
     let modifiedItems = [...allItems];
     modalList.forEach((listItem) => {
-      const { _id, selected, quantity } = listItem;
-      if (selected > quantity) {
-        modifiedItems = modifiedItems.filter((item) => {
-          return item._id !== listItem._id;
-        });
-        deleteItemById(_id);
-      } else {
-        const { selected, ...rest } = listItem;
-        const updatedItem = { ...rest, quantity: quantity - selected };
-        modifiedItems = modifiedItems.map((item) => {
-          return item._id === updatedItem._id ? updatedItem : item;
-        });
-        updateItemById(updatedItem);
-      }
+      const { quantity } = listItem;
+      const { selected, ...rest } = listItem;
+      const updatedItem = { ...rest, quantity: quantity + selected };
+      modifiedItems = modifiedItems.map((item) => {
+        return item._id === updatedItem._id ? updatedItem : item;
+      });
+      updateItemById(updatedItem);
     });
     setItemsToModify([]);
     setAllItems(modifiedItems);
-    closeRemoveModal();
+    closeModal();
   };
 
   return (
     <SimpleModal
-      title='Remove Items'
+      title='Add Items'
       isOpen={isOpen}
-      closeModal={closeRemoveModal}
+      closeModal={closeModal}
       style={modalStyle}
     >
       <Divider />
@@ -116,13 +108,12 @@ export default function RemoveItemModal(props) {
                   tabIndex={-1}
                   color='secondary'
                   onClick={() => handleAddButton(item._id)}
-                  disabled={item.selected >= item.quantity}
                 >
                   <AddIcon />
                 </IconButton>
                 <span
                   style={{ fontSize: '1.2em', margin: '0.3em' }}
-                >{`${item.selected} / ${item.quantity}`}</span>
+                >{`${item.selected}`}</span>
                 <IconButton
                   tabIndex={-1}
                   color='secondary'
@@ -132,7 +123,7 @@ export default function RemoveItemModal(props) {
                   <RemoveIcon />
                 </IconButton>
               </ListItem>
-              {index !== itemsToRemove.length - 1 ? <Divider /> : null}
+              {index !== itemsToAdd.length - 1 ? <Divider /> : null}
             </div>
           );
         })}

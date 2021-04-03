@@ -1,3 +1,5 @@
+import { uniqueId } from 'lodash';
+
 export default class Tree {
   constructor(root) {
     this._root = root || null;
@@ -13,13 +15,16 @@ export default class Tree {
     goThrough(this._root);
   }
 
-  _addNode(label, open, editing, parentValue) {
+  _addNode(id, label, layer, isOpen, isSelected, editing, parent) {
     const newNode = {
-      label,
-      open,
-      editing,
+      id: id,
+      layer: layer,
+      isOpen: isOpen,
+      isSelected: isSelected,
+      editing: editing,
       children: [],
-      parentValue: parentValue,
+      label: label,
+      parent: parent,
     };
 
     if (this._root === null) {
@@ -28,16 +33,16 @@ export default class Tree {
     }
 
     this._traverse((node) => {
-      if (node.label === parentValue) {
+      if (node.label === parent && node.label !== label) {
         node.children.push(newNode);
       }
     });
   }
 
-  _removeNode(label) {
+  _removeNode(label, parent) {
     this._traverse((node) => {
       node.children.forEach((childNode, index) => {
-        if (childNode.label === label) {
+        if (childNode.label === label && childNode.parent === parent) {
           node.children.splice(index, 1);
         }
       });

@@ -43,7 +43,7 @@ const updateItemByID = async (req, res) => {
       room,
       location,
       expirationDate: Date.parse(expirationDate),
-      lowStockAlert: lowStockAlert === 'true',
+      lowStockAlert: lowStockAlert,
     });
     res.json(updatedItem);
   } catch (err) {

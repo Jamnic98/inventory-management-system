@@ -24,17 +24,23 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function LowStockPanel(props) {
-  const { listItems } = props;
+  const { listItems, openEmailModal } = props;
   const classes = useStyles();
 
   const [filteredData, setFilteredData] = useState([]);
 
   useEffect(() => {
-    const filteredList = listItems.filter((item) => {
-      return item.lowStockAlert;
-    });
+    const filteredList = listItems
+      .filter((item) => {
+        return item.lowStockAlert && item.quantity < 2;
+      })
+      .sort((a, b) => b.quantity - a.quantity);
     setFilteredData(filteredList);
   }, [listItems]);
+
+  const handleSendAlert = () => {
+    openEmailModal(filteredData);
+  };
 
   return (
     <Box py={1}>
@@ -49,7 +55,12 @@ function LowStockPanel(props) {
         })}
       </List>
       <Box m={1}>
-        <Button color='primary' variant='contained' className={classes.button}>
+        <Button
+          onClick={handleSendAlert}
+          color='primary'
+          variant='contained'
+          className={classes.button}
+        >
           Send alert
         </Button>
       </Box>

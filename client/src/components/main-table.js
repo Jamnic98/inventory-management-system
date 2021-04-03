@@ -10,13 +10,13 @@ import TableRow from '@material-ui/core/TableRow';
 import Checkbox from '@material-ui/core/Checkbox';
 import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
-import IconButton from '@material-ui/core/IconButton';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 import Box from '@material-ui/core/Box';
 import InputAdornment from '@material-ui/core/InputAdornment';
 import CloseIcon from '@material-ui/icons/Close';
 import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
+import DeleteForeverIcon from '@material-ui/icons/DeleteForever';
 import EditIcon from '@material-ui/icons/Edit';
 
 const ROWS_PER_PAGE = 5;
@@ -118,15 +118,14 @@ const useStyles = makeStyles((theme) => ({
 export default function MainTable(props) {
   const {
     allItems,
-    deleteItemById,
     addItem,
-    setAllItems,
     openRemoveModal,
-    openAddModal,
-    openEditModal,
+    openEditItemModal,
+    openDeleteItemModal,
     itemsToModify,
     setItemsToModify,
     setAlert,
+    setAdding,
   } = props;
   const classes = useStyles();
   const [page, setPage] = useState(0);
@@ -190,14 +189,44 @@ export default function MainTable(props) {
   const setExpirationDate = (date) => {
     return parseInt(Date.parse(date)) !== 0
       ? new Date(date).toLocaleDateString()
-      : 'N/A';
+      : '-';
+  };
+
+  const handleAddButton = async () => {
+    setAdding(true);
+  };
+
+  const handleRemoveButton = async () => {
+    if (itemsToModify.length > 0) {
+      openRemoveModal();
+    } else {
+      setAlert({ message: 'Select an item to remove', type: 'error' });
+    }
   };
 
   const handleDeleteButton = async () => {
     if (itemsToModify.length > 0) {
-      openRemoveModal();
+      openDeleteItemModal();
     } else {
       setAlert({ message: 'Select an item to delete', type: 'error' });
+    }
+  };
+
+  const handleEditButton = async () => {
+    switch (itemsToModify.length) {
+      case 0: {
+        setAlert({ message: 'Select an item to edit', type: 'error' });
+        break;
+      }
+      case 1: {
+        openEditItemModal();
+        break;
+      }
+      default:
+        setAlert({
+          message: 'Too many items selected, select only one',
+          type: 'error',
+        });
     }
   };
 
@@ -210,19 +239,30 @@ export default function MainTable(props) {
           size='large'
           aria-label='button group'
         >
-          <Button onClick={addItem} endIcon={<AddIcon>add</AddIcon>}>
+          <Button onClick={handleAddButton} endIcon={<AddIcon>add</AddIcon>}>
             add
           </Button>
-          <Button /* onClick={addItem} */ endIcon={<EditIcon>edit</EditIcon>}>
+          <Button
+            onClick={handleEditButton}
+            endIcon={<EditIcon>edit</EditIcon>}
+          >
             edit
           </Button>
           <Button
-            onClick={handleDeleteButton}
-            endIcon={<DeleteIcon>delete</DeleteIcon>}
+            onClick={handleRemoveButton}
+            endIcon={<DeleteIcon>remove</DeleteIcon>}
           >
-            delete
+            remove
           </Button>
         </ButtonGroup>
+        <Button
+          size='large'
+          style={{ float: 'right' }}
+          onClick={handleDeleteButton}
+          endIcon={<DeleteForeverIcon>delete</DeleteForeverIcon>}
+        >
+          delete
+        </Button>
       </Box>
       <TableContainer className={classes.tableContainer}>
         <Table

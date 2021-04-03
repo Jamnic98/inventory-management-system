@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Lang from 'lodash';
 import { makeStyles } from '@material-ui/core/styles';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
@@ -7,6 +6,7 @@ import ListItemText from '@material-ui/core/ListItemText';
 import Collapse from '@material-ui/core/Collapse';
 import ExpandLess from '@material-ui/icons/ExpandLess';
 import ExpandMore from '@material-ui/icons/ExpandMore';
+import ClickAwayListener from '@material-ui/core/ClickAwayListener';
 import './room-location-tree.css';
 
 const useStyles = makeStyles((theme) => ({
@@ -16,9 +16,8 @@ const useStyles = makeStyles((theme) => ({
     height: '300px',
     overflow: 'auto',
   },
-  nested: {},
   textField: {
-    marginLeft: '0.4em',
+    marginLeft: '0.5em',
     fontSize: '1.2em',
     border: 'none',
     outline: 'none',
@@ -35,158 +34,111 @@ const useStyles = makeStyles((theme) => ({
 
 export default function RoomLocationTree(props) {
   const classes = useStyles();
-  const { tree, setTree } = props;
+  const {
+    tree,
+    handleClick,
+    handleDoubleClick,
+    handleKeyPressed,
+    handleChange,
+    setSelected,
+    handleClickAway,
+  } = props;
 
   const getPadding = (layer) => {
-    return `${35 * layer}px`;
-  };
-
-  const handleClick = (label) => {
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      node.isSelected = false;
-      if (label === node.label) {
-        node.isOpen = !node.isOpen;
-      }
-    });
-    setTree(treeCopy);
-  };
-
-  const handleDoubleClick = (label) => {
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      node.isSelected = false;
-      if (label === node.label) {
-        node.editing = true;
-      } else {
-        node.editing = false;
-      }
-    });
-    setTree(treeCopy);
-  };
-
-  const handleKeyPressed = (e) => {
-    if (e.key === 'Enter') {
-      const treeCopy = Lang.cloneDeep(tree);
-      treeCopy._traverse((node) => (node.editing = false));
-      setTree(treeCopy);
-    }
-  };
-
-  const handleChange = (e, label) => {
-    const text = e.target.value;
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      if (label === node.label) {
-        node.label = text;
-      }
-    });
-    setTree(treeCopy);
-  };
-
-  const setSelected = (label) => {
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      if (label === node.label) {
-        if (!isNodeSelected()) {
-          node.isSelected = !node.isSelected;
-        }
-      } else {
-        node.isSelected = false;
-      }
-    });
-    setTree(treeCopy);
-  };
-
-  const isNodeSelected = () => {
-    let output = false;
-    tree._traverse((node) => {
-      if (node.editing) {
-        output = true;
-      }
-    });
-    return output;
-  };
-
-  const clearEdit = () => {
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      node.editing = false;
-    });
-    setTree(treeCopy);
+    return `${50 * layer}px`;
   };
 
   const createTree = (parentNode) => {
-    const { children, editing, label, layer, isSelected } = parentNode;
+    const {
+      id: nodeId,
+      children,
+      editing,
+      label,
+      layer,
+      isSelected,
+    } = parentNode;
 
     if (children.length === 0) {
       return (
-        <ListItem style={{ paddingLeft: getPadding(layer) }}>
-          <div
-            className={`${classes.box} ${isSelected ? 'selected' : ''}`}
-            onClick={() => setSelected(label)}
+        <ListItem margin='dense' style={{ paddingLeft: getPadding(layer) }}>
+          <ClickAwayListener
+            mouseEvent={isSelected || editing ? 'onClick' : false}
+            onClickAway={() => handleClickAway()}
           >
-            <ListItemText
-              onClick={() => setSelected(label)}
-              onDoubleClick={() => handleDoubleClick(label)}
-              primary={
-                <input
-                  type='text'
-                  value={label}
-                  className={classes.textField}
-                  disabled={!editing}
-                  onChange={(e) => handleChange(e, label)}
-                  onKeyDown={(e) => handleKeyPressed(e)}
-                />
-              }
-            />
-          </div>
-        </ListItem>
-      );
-    } else {
-      const {
-        layer,
-        label,
-        editing,
-        isOpen,
-        children,
-        isSelected,
-      } = parentNode;
-      return (
-        <>
-          <ListItem
-            onDoubleClick={() => handleDoubleClick(label)}
-            className={classes.nested}
-            style={{ paddingLeft: getPadding(layer) }}
-          >
-            {isOpen ? (
-              <ExpandLess
-                className={classes.dropDownButton}
-                onClick={() => handleClick(label)}
-              />
-            ) : (
-              <ExpandMore
-                className={classes.dropDownButton}
-                onClick={() => handleClick(label)}
-              />
-            )}
             <div
               className={`${classes.box} ${isSelected ? 'selected' : ''}`}
-              onClick={() => setSelected(label)}
+              onClick={() => setSelected(nodeId)}
             >
               <ListItemText
+                onDoubleClick={() => handleDoubleClick(nodeId)}
                 primary={
                   <input
                     type='text'
                     value={label}
                     className={classes.textField}
                     disabled={!editing}
-                    onChange={(e) => handleChange(e, label)}
+                    onChange={(e) => handleChange(e, nodeId)}
                     onKeyDown={(e) => handleKeyPressed(e)}
                   />
                 }
               />
             </div>
+          </ClickAwayListener>
+        </ListItem>
+      );
+    } else {
+      const {
+        id: nodeId,
+        layer,
+        label,
+        editing,
+        isOpen,
+        children,
+        isSelected,
+        parent,
+      } = parentNode;
+      return (
+        <>
+          <ListItem
+            margin='dense'
+            onDoubleClick={() => handleDoubleClick(nodeId)}
+            style={{ paddingLeft: getPadding(layer) }}
+          >
+            {isOpen ? (
+              <ExpandLess
+                fontSize='large'
+                className={classes.dropDownButton}
+                onClick={() => handleClick(nodeId)}
+              />
+            ) : (
+              <ExpandMore
+                fontSize='large'
+                className={classes.dropDownButton}
+                onClick={() => handleClick(nodeId)}
+              />
+            )}
+            <ClickAwayListener
+              mouseEvent={isSelected || editing ? 'onClick' : false}
+              onClickAway={() => handleClickAway()}
+            >
+              <div
+                className={`${classes.box} ${isSelected ? 'selected' : ''}`}
+                onClick={() => setSelected(nodeId)}
+              >
+                <ListItemText
+                  primary={
+                    <input
+                      type='text'
+                      value={label}
+                      className={classes.textField}
+                      disabled={!editing}
+                      onChange={(e) => handleChange(e, nodeId)}
+                      onKeyDown={(e) => handleKeyPressed(e)}
+                    />
+                  }
+                />
+              </div>
+            </ClickAwayListener>
           </ListItem>
           <Collapse in={isOpen} timeout='auto' unmountOnExit>
             <List component='div' disablePadding>

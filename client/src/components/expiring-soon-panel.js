@@ -84,8 +84,11 @@ function ExpiringSoonPanel(props) {
         const date = item.expirationDate;
         return parseInt(Date.parse(date)) !== 0;
       })
-      .sort()
-      .reverse();
+      .sort(
+        (a, b) =>
+          parseInt(Date.parse(a.expirationDate)) -
+          parseInt(Date.parse(b.expirationDate))
+      );
     setFilteredData(data);
   }, [tableData]);
 

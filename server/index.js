@@ -1,11 +1,8 @@
 import http from 'http';
 import ws from 'ws';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import app from './server.js';
 import sendMessage from './emailer.js';
-
-dotenv.config();
 
 // constants
 const PORT = process.env.PORT || 8080;
@@ -22,7 +19,9 @@ wsServer.on('connection', (ws) => {
   console.log('web socket connected');
   ws.on('message', (message) => {
     wsServer.clients.forEach((client) => {
-      switch (message) {
+      const messageObj = JSON.parse(message);
+      const { type } = messageObj;
+      switch (type) {
         case 'add':
         case 'delete':
         case 'update':
@@ -31,10 +30,8 @@ wsServer.on('connection', (ws) => {
           }
           break;
         case 'email':
-          sendMessage('Test', 'Hello!', 'I.M.S', [
-            'jamiestimpson30@gmail.com',
-            'jamiestimpson40@gmail.com',
-          ]);
+          const { subject, content, recipients } = messageObj;
+          sendMessage(subject, content, recipients);
           break;
         default:
           break;

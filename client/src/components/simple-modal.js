@@ -4,7 +4,7 @@ import Modal from '@material-ui/core/Modal';
 import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 import CloseIcon from '@material-ui/icons/Close';
-import { Typography } from '@material-ui/core';
+import Typography from '@material-ui/core/Typography';
 
 const useStyles = makeStyles((theme) => ({
   modal: {
@@ -14,9 +14,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: 'auto',
   },
   paper: {
-    maxWidth: '80vw',
-    maxheight: '80vh',
-    top: '15%',
+    maxWidth: '50vw',
+    top: '10%',
     marginLeft: 'auto',
     marginRight: 'auto',
     position: 'absolute',

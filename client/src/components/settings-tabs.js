@@ -3,14 +3,9 @@ import { makeStyles, useTheme } from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
 import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
-import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 import RoomLocationTab from './room-location-tab.js';
-import RoomLocationTree from './room-location-tree.js';
-import IconButton from '@material-ui/core/IconButton';
-import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd';
-import AddIcon from '@material-ui/icons/Add';
-import DeleteIcon from '@material-ui/icons/Delete';
+import EmailTab from './email-tab.js';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -35,7 +30,7 @@ function a11yProps(index) {
   };
 }
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(() => ({
   root: {
     backgroundColor: 'theme.palette.background.paper',
     width: '100%',
@@ -49,12 +44,13 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function SettingsTabs() {
+export default function SettingsTabs(props) {
   const classes = useStyles();
+  const { tree, setTree, emails, setEmails, addEmail, deleteEmailById } = props;
   const theme = useTheme();
   const [value, setValue] = useState(0);
 
-  const handleChange = (event, newValue) => {
+  const handleChange = (e, newValue) => {
     setValue(newValue);
   };
 
@@ -79,14 +75,21 @@ export default function SettingsTabs() {
         index={0}
         dir={theme.direction}
       >
-        <RoomLocationTab />
+        <RoomLocationTab tree={tree} setTree={setTree} />
       </TabPanel>
       <TabPanel
         className={classes.tabPanel}
         value={value}
         index={1}
         dir={theme.direction}
-      ></TabPanel>
+      >
+        <EmailTab
+          emails={emails}
+          setEmails={setEmails}
+          addEmail={addEmail}
+          deleteEmailById={deleteEmailById}
+        />
+      </TabPanel>
     </div>
   );
 }
