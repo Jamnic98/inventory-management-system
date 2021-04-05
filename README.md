@@ -34,7 +34,7 @@ Material-ui was used to style the components.
 
 ### Adding a new item
 
-![add_new_item](https://user-images.githubusercontent.com/44094740/113580840-335f4900-961e-11eb-8941-0ed51d0b5cb9.gif)
+![add_new_item](https://user-images.githubusercontent.com/44094740/113616062-894ae580-964c-11eb-8d2b-79d85ab71f97.gif)
 
 ### Adding items already in the inventory
 
