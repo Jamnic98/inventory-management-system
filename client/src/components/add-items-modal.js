@@ -33,11 +33,12 @@ export default function AddItemsModal(props) {
     setItemsToModify,
     allItems,
     setAllItems,
+    setAlert,
   } = props;
   const classes = useStyles();
 
   const modalStyle = {
-    minWidth: '85%',
+    // minWidth: '85%',
   };
 
   const [modalList, setModalList] = useState([]);
@@ -83,6 +84,7 @@ export default function AddItemsModal(props) {
     });
     setItemsToModify([]);
     setAllItems(modifiedItems);
+    setAlert({ message: `Item${itemsToAdd.length > 1 ? 's' : ''} added` });
     closeModal();
   };
 

@@ -8,7 +8,7 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
 import AddIcon from '@material-ui/icons/Add';
-b;
+import RemoveIcon from '@material-ui/icons/Remove';
 import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
 
 const useStyles = makeStyles(() => ({
@@ -34,11 +34,12 @@ export default function RemoveItemModal(props) {
     setItemsToModify,
     allItems,
     setAllItems,
+    setAlert,
   } = props;
   const classes = useStyles();
 
   const modalStyle = {
-    minWidth: '85%',
+    // minWidth: '85%',
   };
 
   const [modalList, setModalList] = useState([]);
@@ -91,6 +92,7 @@ export default function RemoveItemModal(props) {
     });
     setItemsToModify([]);
     setAllItems(modifiedItems);
+    setAlert({ message: `Item${itemsToRemove.length > 1 ? 's' : ''} removed` });
     closeRemoveModal();
   };
 

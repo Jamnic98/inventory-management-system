@@ -15,7 +15,7 @@ const sendMessage = (subject, message, recipients) => {
     from: process.env.EMAIL_USER,
     to: recipients.join(', '),
     subject: subject,
-    text: message,
+    html: message,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {

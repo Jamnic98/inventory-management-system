@@ -24,7 +24,14 @@ const useStyles = makeStyles(() => ({
 }));
 
 function EmailModal(props) {
-  const { closeEmailModal, isOpen, emails, sendEmails, lowStockItems } = props;
+  const {
+    closeEmailModal,
+    isOpen,
+    emails,
+    sendEmails,
+    lowStockItems,
+    setAlert,
+  } = props;
   const modalStyle = { minWidth: '300px' };
   const classes = useStyles();
 
@@ -38,17 +45,24 @@ function EmailModal(props) {
   }, [emails]);
 
   const handleConfirmButton = () => {
-    const message = lowStockItems
-      .map((item) => {
-        return item.name;
-      })
-      .join(', ');
+    const itemListString = `<ul>
+        ${lowStockItems
+          .map((item) => {
+            return `<li>${item.name}</li>`;
+          })
+          .join('')}
+      </ul>`;
+    const message = `<p>The following items are running low:</p> ${itemListString}`;
     const addressList = emailList.map((email) => {
       if (email.isSelected) {
         return email.address;
       }
     });
     sendEmails(addressList, message);
+    setAlert({
+      message: `Email${addressList.length > 1 ? 's' : ''} sent`,
+      type: 'success',
+    });
     closeEmailModal();
   };
 

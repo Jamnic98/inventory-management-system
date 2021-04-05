@@ -187,7 +187,7 @@ function App() {
     socket.send(
       JSON.stringify({
         type: 'email',
-        subject: 'Test',
+        subject: 'Low Stock Alert',
         content: message,
         recipients: emailList,
       })
@@ -298,6 +298,7 @@ function App() {
           isOpen={adding}
           allItems={allItems}
           setAllItems={setAllItems}
+          setAlert={setAlert}
           tree={tree}
         />
       );
@@ -350,6 +351,7 @@ function App() {
                   <Typography variant='h6'>
                     <b>Expiring Soon:</b>
                   </Typography>
+                  <span>(within 2 weeks)</span>
                 </Box>
                 <ExpiringSoonPanel tableData={allItems} />
               </Grid>
@@ -392,6 +394,7 @@ function App() {
           updateItemById={updateItemById}
           allItems={allItems}
           setAllItems={setAllItems}
+          setAlert={setAlert}
         />
       ) : null}
       {deleting ? (
@@ -403,6 +406,7 @@ function App() {
           isOpen={deleting}
           allItems={allItems}
           setAllItems={setAllItems}
+          setAlert={setAlert}
         />
       ) : null}
       {editing ? (
@@ -415,6 +419,7 @@ function App() {
           allItems={allItems}
           setAllItems={setAllItems}
           tree={tree}
+          setAlert={setAlert}
         />
       ) : null}
       {adding ? setAddModal() : null}
@@ -426,6 +431,7 @@ function App() {
           lowStockItems={lowStockItems}
           emails={emails}
           sendEmails={sendEmails}
+          setAlert={setAlert}
         />
       ) : null}
       {alert ? (

@@ -44,6 +44,7 @@ export default function EditItemModal(props) {
     updateItemById,
     allItems,
     setAllItems,
+    setAlert,
   } = props;
 
   const modalStyle = {};
@@ -101,6 +102,7 @@ export default function EditItemModal(props) {
     setAllItems(updatedItems);
     updateItemById(itemToEdit);
     setItemsToModify([]);
+    setAlert({ message: `Item${itemsToModify.length > 1 ? 's' : ''} edited` });
     closeEditItemModal();
   };
 

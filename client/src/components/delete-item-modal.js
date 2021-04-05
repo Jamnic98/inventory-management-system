@@ -8,7 +8,6 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
 import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
-import RemoveIcon from '@material-ui/icons/Remove';
 
 const useStyles = makeStyles(() => ({
   modalContentContainer: {
@@ -32,11 +31,12 @@ export default function DeleteItemModal(props) {
     setItemsToModify,
     allItems,
     setAllItems,
+    setAlert,
   } = props;
   const classes = useStyles();
 
   const modalStyle = {
-    minWidth: '85%',
+    // minWidth: '85%',
   };
 
   const [modalList, setModalList] = useState([]);
@@ -80,6 +80,10 @@ export default function DeleteItemModal(props) {
     });
     setItemsToModify([]);
     setAllItems(modifiedItems);
+    setAlert({
+      message: `Item${itemsToDelete.length > 1 ? 's' : ''} deleted`,
+      type: 'success',
+    });
     closeDeleteItemModal();
   };
 
@@ -101,7 +105,6 @@ export default function DeleteItemModal(props) {
                   primary={item.name}
                   secondary={`${item.room} ${item.location}`}
                 />
-                <RemoveIcon />
               </ListItem>
               {index !== itemsToDelete.length - 1 ? <Divider /> : null}
             </div>

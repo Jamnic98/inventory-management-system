@@ -47,9 +47,10 @@ try {
     useNewUrlParser: true,
     autoIndex: false,
   });
+  console.log('Database connection established.');
 } catch (err) {
   console.error(err);
 }
 
 // listen for incoming requests
-server.listen(PORT);
+server.listen(PORT, console.log(`Server listening on port ${PORT}.`));

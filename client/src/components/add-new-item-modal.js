@@ -37,11 +37,8 @@ export default function AddNewItemModal(props) {
     tree,
     isOpen,
     closeModal,
-    itemsToModify,
     setItemsToModify,
     addItem,
-    allItems,
-    setAllItems,
     setAlert,
   } = props;
 
@@ -92,6 +89,7 @@ export default function AddNewItemModal(props) {
     if (allFieldsCompleted()) {
       addItem(itemToAdd);
       setItemsToModify([]);
+      setAlert({ message: 'New item added', type: 'success' });
       closeModal();
     } else {
       setAlert({ message: 'All fields must be completed', type: 'error' });
@@ -298,7 +296,7 @@ export default function AddNewItemModal(props) {
                   defaultValue='yyyy-mm-dd'
                   className={classes.textField}
                   onChange={(e) => handleChange(e)}
-                  disabled={checked}
+                  disabled={!checked}
                 />
               }
             ></FormControlLabel>

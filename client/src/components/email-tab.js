@@ -56,7 +56,7 @@ export default function EmailTab(props) {
     setError(true);
     if (name && address) {
       addEmail(name, address);
-      setEmails([...emails, { name, address }]);
+      setEmails([{ name, address }, ...emails]);
       setError(false);
       setName('');
       setAddress('');
