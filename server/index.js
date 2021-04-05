@@ -16,7 +16,6 @@ wsServer.on('close', async () => {
 });
 
 wsServer.on('connection', (ws) => {
-  console.log('web socket connected');
   ws.on('message', (message) => {
     wsServer.clients.forEach((client) => {
       const messageObj = JSON.parse(message);
@@ -48,10 +47,9 @@ try {
     useNewUrlParser: true,
     autoIndex: false,
   });
-  console.log('Database connection established.');
 } catch (err) {
   console.error(err);
 }
 
 // listen for incoming requests
-server.listen(PORT, console.log(`Server listening on port ${PORT}.`));
+server.listen(PORT);

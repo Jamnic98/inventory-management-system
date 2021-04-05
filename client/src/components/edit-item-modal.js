@@ -120,6 +120,10 @@ export default function EditItemModal(props) {
       case 'expires':
         setChecked(!checked);
         break;
+      case 'expirationDate':
+        const date = e.target.value;
+        changeDate(date);
+        break;
     }
   };
 
@@ -182,6 +186,14 @@ export default function EditItemModal(props) {
       };
       setItemToEdit(updatedItem);
     }
+  };
+
+  const changeDate = (date) => {
+    const updatedItem = {
+      ...itemToEdit,
+      expirationDate: new Date(date),
+    };
+    setItemToEdit(updatedItem);
   };
 
   const setOutput = () => {
@@ -273,15 +285,21 @@ export default function EditItemModal(props) {
               label='Expiration date'
               labelPlacement='top'
             />
-            <TextField
-              id='expirationDate'
-              label='Exp. date:'
-              type='date'
-              defaultValue={new Date(expirationDate).toISOString().slice(0, 10)}
-              className={classes.textField}
-              onChange={(e) => handleChange(e)}
-              disabled={checked}
-            />
+            <FormControlLabel
+              className={classes.lowStockAlert}
+              control={
+                <TextField
+                  id='expirationDate'
+                  type='date'
+                  defaultValue={new Date(itemsToModify[0].expirationDate)
+                    .toISOString()
+                    .slice(0, 10)}
+                  className={classes.textField}
+                  onChange={(e) => handleChange(e)}
+                  disabled={checked}
+                />
+              }
+            ></FormControlLabel>
             <br />
             <FormControlLabel
               className={classes.lowStockAlert}

@@ -3,10 +3,12 @@ import { makeStyles } from '@material-ui/core/styles';
 import SimpleModal from './simple-modal.js';
 import List from '@material-ui/core/List';
 import Button from '@material-ui/core/Button';
+import IconButton from '@material-ui/core/IconButton';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
 import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
+import RemoveIcon from '@material-ui/icons/Remove';
 
 const useStyles = makeStyles(() => ({
   modalContentContainer: {
@@ -99,6 +101,7 @@ export default function DeleteItemModal(props) {
                   primary={item.name}
                   secondary={`${item.room} ${item.location}`}
                 />
+                <RemoveIcon />
               </ListItem>
               {index !== itemsToDelete.length - 1 ? <Divider /> : null}
             </div>

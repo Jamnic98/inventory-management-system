@@ -8,9 +8,11 @@ import TableHead from '@material-ui/core/TableHead';
 import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
+import { now } from 'lodash';
 
 const ROWS_PER_PAGE = 6;
 const ROW_HEIGHT = 32.2;
+const SECONDS_IN_DAY = 86400;
 
 const headCells = [
   {
@@ -82,7 +84,11 @@ function ExpiringSoonPanel(props) {
     const data = tableData
       .filter((item) => {
         const date = item.expirationDate;
-        return parseInt(Date.parse(date)) !== 0;
+        const dateInSeconds = parseInt(Date.parse(date));
+        return (
+          dateInSeconds !== 0 &&
+          new Date(now) - dateInSeconds < SECONDS_IN_DAY * 14
+        );
       })
       .sort(
         (a, b) =>

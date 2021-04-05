@@ -7,6 +7,7 @@ import Collapse from '@material-ui/core/Collapse';
 import ExpandLess from '@material-ui/icons/ExpandLess';
 import ExpandMore from '@material-ui/icons/ExpandMore';
 import ClickAwayListener from '@material-ui/core/ClickAwayListener';
+import ListSubheader from '@material-ui/core/ListSubheader';
 import './room-location-tree.css';
 
 const useStyles = makeStyles((theme) => ({
@@ -95,7 +96,6 @@ export default function RoomLocationTree(props) {
         isOpen,
         children,
         isSelected,
-        parent,
       } = parentNode;
       return (
         <>
