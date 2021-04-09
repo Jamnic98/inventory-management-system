@@ -34,9 +34,8 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export default function PageHeader(props) {
-  const classes = useStyles();
-
   const { openSettings } = props;
+  const classes = useStyles();
 
   return (
     <div className={classes.root}>

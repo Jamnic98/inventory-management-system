@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
+import React, { useState } from 'react';
 import ListItemText from '@material-ui/core/ListItemText';
 import IconButton from '@material-ui/core/IconButton';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Box from '@material-ui/core/Box';
-import Typography from '@material-ui/core/Typography';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
@@ -30,7 +29,7 @@ export default function EmailTab(props) {
 
   const handleDelete = (e, index) => {
     let updatedEmails = [];
-    emails.map((email, i) => {
+    emails.forEach((email, i) => {
       if (index !== i) {
         updatedEmails.push(email);
       } else {
@@ -96,7 +95,7 @@ export default function EmailTab(props) {
           <List className={classes.list}>
             {emails.map((email, index) => {
               return (
-                <ListItem>
+                <ListItem key={index}>
                   <ArrowRightOutlinedIcon />
                   <ListItemText
                     primary={email.name}

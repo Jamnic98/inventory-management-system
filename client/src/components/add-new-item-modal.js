@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import SimpleModal from './simple-modal.js';
 import Button from '@material-ui/core/Button';
@@ -58,12 +58,7 @@ export default function AddNewItemModal(props) {
   const [rooms, setRooms] = useState([]);
   const [locations, setLocations] = useState([]);
 
-  useEffect(() => {
-    setLocations(getLocations(itemToAdd.room));
-    setRooms(getRooms());
-  }, [itemToAdd]);
-
-  const getRooms = () => {
+  const getRooms = useCallback(() => {
     let rooms = [];
     tree._traverse((node) => {
       if (node.layer === 1) {
@@ -71,19 +66,22 @@ export default function AddNewItemModal(props) {
       }
     });
     return rooms;
-  };
+  }, [tree]);
 
-  const getLocations = (room) => {
-    let locations = [];
-    if (itemToAdd) {
-      tree._traverse((node) => {
-        if (node.layer === 2 && node.parent === room) {
-          locations = [node.label, ...locations];
-        }
-      });
-    }
-    return locations;
-  };
+  const getLocations = useCallback(
+    (room) => {
+      let locations = [];
+      if (itemToAdd) {
+        tree._traverse((node) => {
+          if (node.layer === 2 && node.parent === room) {
+            locations = [node.label, ...locations];
+          }
+        });
+      }
+      return locations;
+    },
+    [itemToAdd, tree]
+  );
 
   const handleConfirmButton = () => {
     if (allFieldsCompleted()) {
@@ -124,6 +122,8 @@ export default function AddNewItemModal(props) {
       case 'expirationDate':
         const date = e.target.value;
         changeDate(date);
+        break;
+      default:
         break;
     }
   };
@@ -198,16 +198,14 @@ export default function AddNewItemModal(props) {
     setItemToAdd(updatedItem);
   };
 
+  useEffect(() => {
+    setLocations(getLocations(itemToAdd.room));
+    setRooms(getRooms());
+  }, [itemToAdd.room, getLocations, getRooms]);
+
   const setOutput = () => {
     if (itemToAdd) {
-      const {
-        name,
-        quantity,
-        room,
-        location,
-        expirationDate,
-        lowStockAlert,
-      } = itemToAdd;
+      const { name, quantity, room, location, lowStockAlert } = itemToAdd;
       return (
         <SimpleModal
           title='Add New Item'

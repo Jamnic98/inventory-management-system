@@ -21,7 +21,7 @@ import Alert from '@material-ui/lab/Alert';
 import axios from 'axios';
 import './App.css';
 
-const socket = new WebSocket('ws://192.168.68.116:8080');
+const socket = new WebSocket('ws://192.168.68.123:8080');
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -127,14 +127,14 @@ function App() {
   const [adding, setAdding] = useState(false);
   const [emailing, setEmailing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [locations, setLocations] = useState([]);
+  // const [locations, setLocations] = useState([]);
 
   useEffect(() => {
     getAllItems().then((items) => setAllItems(items));
     getEmails().then((emails) => {
       setEmails(emails);
     });
-    getLocations().then((locations) => setLocations(locations));
+    // getLocations().then((locations) => setLocations(locations));
   }, []);
 
   socket.addEventListener('message', async (message) => {
@@ -146,21 +146,21 @@ function App() {
     return response.data.reverse();
   };
 
-  const getLocations = async () => {
+  /* const getLocations = async () => {
     const response = await axios.get('/rooms-and-locations');
     return response.data;
-  };
+  }; */
 
-  const deleteLocation = async (node) => {
+  /* const deleteLocation = async (node) => {
     const { id, label } = node;
     // delete node and all children by deleting all nodes with parentNode === label
-    // const response = await axios.delete('/rooms-and-locations/delete/');
-    // return response.data;
-  };
+    const response = await axios.delete('/rooms-and-locations/delete/');
+    return response.data;
+  }; */
 
-  const addLocation = async (node) => {
+  /* const addLocation = async (node) => {
     const { id, label } = node;
-  };
+  }; */
 
   const getEmails = async () => {
     const response = await axios.get('/emails');
@@ -200,7 +200,7 @@ function App() {
 
   const deleteItemById = async (itemId) => {
     try {
-      const res = await axios.delete(`/current-items/${itemId}`);
+      await axios.delete(`/current-items/${itemId}`);
       socket.send(JSON.stringify({ type: 'delete' }));
     } catch (error) {
       console.error(error);
@@ -365,6 +365,7 @@ function App() {
                   <LowStockPanel
                     openEmailModal={openEmailModal}
                     listItems={allItems}
+                    emailCount={emails.length}
                   />
                 </Paper>
               </Grid>

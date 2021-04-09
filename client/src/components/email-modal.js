@@ -53,11 +53,11 @@ function EmailModal(props) {
           .join('')}
       </ul>`;
     const message = `<p>The following items are running low:</p> ${itemListString}`;
-    const addressList = emailList.map((email) => {
-      if (email.isSelected) {
-        return email.address;
-      }
-    });
+    const addressList = emailList
+      .filter((email) => {
+        return email.isSelected;
+      })
+      .map((email) => email.address);
     sendEmails(addressList, message);
     setAlert({
       message: `Email${addressList.length > 1 ? 's' : ''} sent`,
@@ -88,9 +88,9 @@ function EmailModal(props) {
       <Box m={2}>
         <List>
           <Divider />
-          {emailList.map((email) => {
+          {emailList.map((email, index) => {
             return (
-              <>
+              <div key={index}>
                 <ListItem>
                   <ListItemIcon>
                     <Checkbox
@@ -105,7 +105,7 @@ function EmailModal(props) {
                   <ListItemText primary={email.name} />
                 </ListItem>
                 <Divider />
-              </>
+              </div>
             );
           })}
         </List>

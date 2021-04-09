@@ -3,7 +3,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import SimpleModal from './simple-modal.js';
 import List from '@material-ui/core/List';
 import Button from '@material-ui/core/Button';
-import IconButton from '@material-ui/core/IconButton';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
@@ -48,26 +47,6 @@ export default function DeleteItemModal(props) {
     });
     setModalList(list);
   }, [itemsToDelete]);
-
-  const handleAddButton = (itemID) => {
-    const updatedList = modalList.map((listItem) => {
-      if (listItem._id === itemID) {
-        listItem.selected += 1;
-      }
-      return listItem;
-    });
-    setModalList(updatedList);
-  };
-
-  const handleRemoveButton = (itemID) => {
-    const updatedList = modalList.map((listItem) => {
-      if (listItem._id === itemID) {
-        listItem.selected -= 1;
-      }
-      return listItem;
-    });
-    setModalList(updatedList);
-  };
 
   const handleConfirmButton = () => {
     let modifiedItems = [...allItems];

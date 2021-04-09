@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
@@ -7,7 +7,6 @@ import Collapse from '@material-ui/core/Collapse';
 import ExpandLess from '@material-ui/icons/ExpandLess';
 import ExpandMore from '@material-ui/icons/ExpandMore';
 import ClickAwayListener from '@material-ui/core/ClickAwayListener';
-import ListSubheader from '@material-ui/core/ListSubheader';
 import './room-location-tree.css';
 
 const useStyles = makeStyles((theme) => ({
@@ -61,7 +60,11 @@ export default function RoomLocationTree(props) {
 
     if (children.length === 0) {
       return (
-        <ListItem margin='dense' style={{ paddingLeft: getPadding(layer) }}>
+        <ListItem
+          key={nodeId}
+          margin='dense'
+          style={{ paddingLeft: getPadding(layer) }}
+        >
           <ClickAwayListener
             mouseEvent={isSelected || editing ? 'onClick' : false}
             onClickAway={() => handleClickAway()}
@@ -98,7 +101,7 @@ export default function RoomLocationTree(props) {
         isSelected,
       } = parentNode;
       return (
-        <>
+        <div key={nodeId}>
           <ListItem
             margin='dense'
             onDoubleClick={() => handleDoubleClick(nodeId)}
@@ -145,7 +148,7 @@ export default function RoomLocationTree(props) {
               {children.map((node) => createTree(node))}
             </List>
           </Collapse>
-        </>
+        </div>
       );
     }
   };

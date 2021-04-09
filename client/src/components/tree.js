@@ -1,5 +1,3 @@
-import { uniqueId } from 'lodash';
-
 export default class Tree {
   constructor(root) {
     this._root = root || null;
@@ -75,7 +73,7 @@ export default class Tree {
   }
 }
 
-class Node {
+/* class Node {
   constructor(label, open, editing, children) {
     this.label = label;
     this.open = open;
@@ -83,3 +81,4 @@ class Node {
     this.children = children;
   }
 }
+ */

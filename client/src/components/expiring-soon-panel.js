@@ -149,7 +149,9 @@ function ExpiringSoonPanel(props) {
                       </TableCell>
                       <TableCell className={classes.tableCell} align='center'>
                         <div className={classes.textContainer}>
-                          {new Date(row.expirationDate).toLocaleDateString()}
+                          {new Date(row.expirationDate).toLocaleDateString(
+                            'en-GB'
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className={classes.tableCell} align='center'>

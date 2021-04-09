@@ -24,7 +24,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function LowStockPanel(props) {
-  const { listItems, openEmailModal } = props;
+  const { listItems, openEmailModal, emailCount } = props;
   const classes = useStyles();
 
   const [filteredData, setFilteredData] = useState([]);
@@ -60,6 +60,7 @@ function LowStockPanel(props) {
           color='primary'
           variant='contained'
           className={classes.button}
+          disabled={emailCount === 0}
         >
           Send alert
         </Button>

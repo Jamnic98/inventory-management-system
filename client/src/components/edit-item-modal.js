@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import SimpleModal from './simple-modal.js';
 import Button from '@material-ui/core/Button';
@@ -55,19 +55,7 @@ export default function EditItemModal(props) {
   const [rooms, setRooms] = useState([]);
   const [locations, setLocations] = useState([]);
 
-  useEffect(() => {
-    setItemToEdit({ ...itemsToModify[0] });
-    setChecked(parseInt(Date.parse(itemsToModify[0].expirationDate)) === 0);
-    setRooms(getRooms());
-  }, [itemsToModify]);
-
-  useEffect(() => {
-    if (itemToEdit) {
-      setLocations(getLocations(itemToEdit.room));
-    }
-  }, [itemToEdit]);
-
-  const getRooms = () => {
+  const getRooms = useCallback(() => {
     let rooms = [];
     tree._traverse((node) => {
       if (node.layer === 1) {
@@ -75,19 +63,22 @@ export default function EditItemModal(props) {
       }
     });
     return rooms;
-  };
+  }, [tree]);
 
-  const getLocations = (room) => {
-    let locations = [];
-    if (itemToEdit) {
-      tree._traverse((node) => {
-        if (node.layer === 2 && node.parent === room) {
-          locations = [node.label, ...locations];
-        }
-      });
-    }
-    return locations;
-  };
+  const getLocations = useCallback(
+    (room) => {
+      let locations = [];
+      if (itemToEdit) {
+        tree._traverse((node) => {
+          if (node.layer === 2 && node.parent === room) {
+            locations = [node.label, ...locations];
+          }
+        });
+      }
+      return locations;
+    },
+    [itemToEdit, tree]
+  );
 
   const handleConfirmButton = () => {
     const { _id } = itemToEdit;
@@ -125,6 +116,8 @@ export default function EditItemModal(props) {
       case 'expirationDate':
         const date = e.target.value;
         changeDate(date);
+        break;
+      default:
         break;
     }
   };
@@ -198,16 +191,21 @@ export default function EditItemModal(props) {
     setItemToEdit(updatedItem);
   };
 
+  useEffect(() => {
+    setItemToEdit({ ...itemsToModify[0] });
+    setChecked(parseInt(Date.parse(itemsToModify[0].expirationDate)) === 0);
+    setRooms(getRooms());
+  }, [itemsToModify, getRooms, getLocations]);
+
+  useEffect(() => {
+    if (itemToEdit) {
+      setLocations(getLocations(itemToEdit.room));
+    }
+  }, [itemToEdit, getLocations]);
+
   const setOutput = () => {
     if (itemToEdit) {
-      const {
-        name,
-        quantity,
-        room,
-        location,
-        expirationDate,
-        lowStockAlert,
-      } = itemToEdit;
+      const { name, quantity, room, location, lowStockAlert } = itemToEdit;
       return (
         <SimpleModal
           title='Edit Item'

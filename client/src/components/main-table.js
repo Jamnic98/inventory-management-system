@@ -118,14 +118,13 @@ const useStyles = makeStyles((theme) => ({
 export default function MainTable(props) {
   const {
     allItems,
-    addItem,
+    setAdding,
     openRemoveModal,
     openEditItemModal,
     openDeleteItemModal,
     itemsToModify,
     setItemsToModify,
     setAlert,
-    setAdding,
   } = props;
   const classes = useStyles();
   const [page, setPage] = useState(0);
@@ -188,7 +187,7 @@ export default function MainTable(props) {
 
   const setExpirationDate = (date) => {
     return parseInt(Date.parse(date)) !== 0
-      ? new Date(date).toLocaleDateString()
+      ? new Date(date).toLocaleDateString('en-GB')
       : '-';
   };
 

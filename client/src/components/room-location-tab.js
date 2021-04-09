@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import RoomLocationTree from './room-location-tree.js';
 import IconButton from '@material-ui/core/IconButton';
 import PlaylistAddIcon from '@material-ui/icons/PlaylistAdd';
-import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { makeStyles } from '@material-ui/core';
 import Lang, { uniqueId } from 'lodash';

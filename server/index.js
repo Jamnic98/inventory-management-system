@@ -16,6 +16,7 @@ wsServer.on('close', async () => {
 });
 
 wsServer.on('connection', (ws) => {
+  console.log('web socket connected');
   ws.on('message', (message) => {
     wsServer.clients.forEach((client) => {
       const messageObj = JSON.parse(message);
@@ -25,7 +26,7 @@ wsServer.on('connection', (ws) => {
         case 'delete':
         case 'update':
           if (client !== ws && client.readyState === 1) {
-            client.send();
+            client.send('');
           }
           break;
         case 'email':
