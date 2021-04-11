@@ -121,7 +121,7 @@ function App() {
   const [emails, setEmails] = useState([]);
   const [alert, setAlert] = useState(null);
   const [itemsToModify, setItemsToModify] = useState([]);
-  const [settings, setSettings] = useState(false);
+  const [settings, setSettings] = useState(true);
   const [removing, setRemoving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);

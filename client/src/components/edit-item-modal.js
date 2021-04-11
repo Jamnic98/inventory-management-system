@@ -134,7 +134,7 @@ export default function EditItemModal(props) {
       const updatedItem = {
         ...itemToEdit,
         room: room,
-        location: getLocations(room)[0],
+        location: '',
       };
       setItemToEdit(updatedItem);
     }
@@ -195,13 +195,13 @@ export default function EditItemModal(props) {
     setItemToEdit({ ...itemsToModify[0] });
     setChecked(parseInt(Date.parse(itemsToModify[0].expirationDate)) === 0);
     setRooms(getRooms());
-  }, [itemsToModify, getRooms, getLocations]);
+  }, [itemsToModify, setRooms, setLocations, getRooms]);
 
   useEffect(() => {
     if (itemToEdit) {
       setLocations(getLocations(itemToEdit.room));
     }
-  }, [itemToEdit, getLocations]);
+  }, [itemToEdit, setLocations, getLocations]);
 
   const setOutput = () => {
     if (itemToEdit) {

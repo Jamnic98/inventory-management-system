@@ -140,7 +140,7 @@ export default function AddNewItemModal(props) {
       const updatedItem = {
         ...itemToAdd,
         room: room,
-        location: getLocations(room)[0],
+        location: '',
       };
       setItemToAdd(updatedItem);
     }
@@ -291,7 +291,6 @@ export default function AddNewItemModal(props) {
                 <TextField
                   id='expirationDate'
                   type='date'
-                  defaultValue='yyyy-mm-dd'
                   className={classes.textField}
                   onChange={(e) => handleChange(e)}
                   disabled={!checked}

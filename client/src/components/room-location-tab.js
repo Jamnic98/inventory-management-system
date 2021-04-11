@@ -24,18 +24,7 @@ export default function RoomLocationTab(props) {
     const treeCopy = Lang.cloneDeep(tree);
     treeCopy._traverse((node) => {
       if (node.isSelected) {
-        treeCopy._removeNode(node.label, node.parent);
-      }
-    });
-    setTree(treeCopy);
-  };
-
-  const handleClick = (nodeId) => {
-    const treeCopy = Lang.cloneDeep(tree);
-    treeCopy._traverse((node) => {
-      node.isSelected = false;
-      if (node.id === nodeId) {
-        node.isOpen = !node.isOpen;
+        treeCopy._removeNode(node.id, node.parent);
       }
     });
     setTree(treeCopy);
@@ -54,13 +43,27 @@ export default function RoomLocationTab(props) {
     setTree(treeCopy);
   };
 
-  const handleClickAway = (e) => {
-    /* const treeCopy = Lang.cloneDeep(tree);
+  const handleClick = (nodeId) => {
+    const treeCopy = Lang.cloneDeep(tree);
     treeCopy._traverse((node) => {
-      node.editing = false;
       node.isSelected = false;
+      if (node.id === nodeId) {
+        node.isOpen = !node.isOpen;
+      }
     });
-    setTree(treeCopy); */
+    setTree(treeCopy);
+  };
+
+  const handleClickAway = (nodeId) => {
+    console.log(nodeId);
+    const treeCopy = Lang.cloneDeep(tree);
+    treeCopy._traverse((node) => {
+      if (node.id === nodeId) {
+        node.isSelected = false;
+        node.editing = false;
+      }
+    });
+    setTree(treeCopy);
   };
 
   const handleKeyPressed = (e) => {
@@ -192,22 +195,6 @@ export default function RoomLocationTab(props) {
             setTree={setTree}
             handleClickAway={(e) => handleClickAway(e)}
           />
-        </div>
-      );
-    } else {
-      return (
-        <div className={classes.root}>
-          <IconButton color='primary' onClick={handleAddChild}>
-            <PlaylistAddIcon />
-          </IconButton>
-          <IconButton
-            color='primary'
-            onClick={handleDelete}
-            className={classes.deleteButton}
-            disabled
-          >
-            <DeleteIcon />
-          </IconButton>
         </div>
       );
     }

@@ -138,16 +138,20 @@ export default function MainTable(props) {
   useEffect(() => {
     const trimmedFW = filterWord.trim().toLowerCase();
     const regEx = new RegExp(trimmedFW, 'i');
-    setFilteredData(
-      allItems.filter((row) => {
-        if (trimmedFW.length > 0) {
-          return regEx.test(row.name);
-        } else {
-          return true;
-        }
-      })
-    );
-  }, [allItems, filterWord]);
+    const filteredData = allItems.filter((row) => {
+      if (trimmedFW.length > 0) {
+        return regEx.test(row.name);
+      } else {
+        return true;
+      }
+    });
+
+    setFilteredData(filteredData);
+    // go to home page if page number is
+    if (Math.ceil(filteredData.length / 5) <= page) {
+      setPage(0);
+    }
+  }, [allItems, filterWord, page, setPage, setFilteredData]);
 
   const handleSelectAllClick = (event) => {
     if (event.target.checked) {

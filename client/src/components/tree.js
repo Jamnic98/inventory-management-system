@@ -37,10 +37,10 @@ export default class Tree {
     });
   }
 
-  _removeNode(label, parent) {
+  _removeNode(nodeId, parent) {
     this._traverse((node) => {
       node.children.forEach((childNode, index) => {
-        if (childNode.label === label && childNode.parent === parent) {
+        if (childNode.id === nodeId && childNode.parent === parent) {
           node.children.splice(index, 1);
         }
       });

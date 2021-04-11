@@ -66,8 +66,8 @@ export default function RoomLocationTree(props) {
           style={{ paddingLeft: getPadding(layer) }}
         >
           <ClickAwayListener
-            mouseEvent={isSelected || editing ? 'onClick' : false}
-            onClickAway={() => handleClickAway()}
+            mouseEvent='onClick'
+            onClickAway={() => handleClickAway(nodeId)}
           >
             <div
               className={`${classes.box} ${isSelected ? 'selected' : ''}`}
@@ -121,8 +121,8 @@ export default function RoomLocationTree(props) {
               />
             )}
             <ClickAwayListener
-              mouseEvent={isSelected || editing ? 'onClick' : false}
-              onClickAway={() => handleClickAway()}
+              mouseEvent='onClick'
+              onClickAway={() => handleClickAway(nodeId)}
             >
               <div
                 className={`${classes.box} ${isSelected ? 'selected' : ''}`}
