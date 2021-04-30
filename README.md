@@ -1,10 +1,10 @@
 # Inventory Management System
 
-> A M.E.R.N stack application for keeping track of items around the house in storage
+> A M.E.R.N stack application for keeping track of items.
 
 ## General Info
 
-This program was designed with the intention of being used in a home setting.
+This application was made with the intention of being used in a home, school or office type environment to be accessed by clients on the local network.
 
 Application features:
 
