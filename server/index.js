@@ -3,6 +3,8 @@ import ws from 'ws';
 import mongoose from 'mongoose';
 import app from './server.js';
 import sendMessage from './emailer.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // constants
 const PORT = process.env.PORT || 8080;
