@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,               // 👈 Set to false temporarily
+    "noImplicitAny": false,        // 👈 Set to false temporarily
+    "allowJs": true,               // 👈 Allows mixing .js and .ts while converting
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,55 @@
+services:
+  mongo:
+    container_name: ims-db
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-imssecret}
+    volumes:
+      - ims-data:/data/db
+    networks:
+      - app-network
+
+  loadbalancer:
+    container_name: loadbalancer
+    image: nginx:1.27.5-alpine-slim
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - client
+      - server
+    networks:
+      - app-network
+
+  client:
+    container_name: ims-client
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    networks:
+      - app-network
+    depends_on:
+      - server
+
+  server:
+    container_name: ims-server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    networks:
+      - app-network
+    env_file:
+      - .env
+    expose:
+      - "8080"
+    depends_on:
+      - mongo
+
+networks:
+  app-network:
+
+volumes:
+  ims-data:
