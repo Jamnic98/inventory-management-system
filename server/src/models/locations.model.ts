@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const roomLocationSchema = mongoose.Schema({
+const locationSchema = new mongoose.Schema({
   id: String,
   label: String,
   layer: Number,
@@ -11,6 +11,6 @@ const roomLocationSchema = mongoose.Schema({
   children: Array,
 })
 
-const RoomLocation = mongoose.model('RoomLocation', roomLocationSchema, 'locationTree')
+const Location = mongoose.model('Location', locationSchema, 'locations')
 
-export default RoomLocation
+export default Location

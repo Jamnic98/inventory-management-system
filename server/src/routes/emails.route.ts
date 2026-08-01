@@ -1,7 +1,9 @@
 import express from 'express'
-import { getEmails, addEmail, deleteEmailById } from '../controllers/emails.js'
+
+import { getEmails, addEmail, deleteEmailById } from 'controllers'
 
 const router = express.Router()
+
 router.get('/', getEmails)
 router.post('/add', addEmail)
 router.delete('/:id', deleteEmailById)

@@ -1,10 +1,10 @@
+import mongoose from 'mongoose'
 import http from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
-import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 
-import app from './server.js'
-import sendMessage from './emailer.js'
+import app from './server'
+import sendMessage from './emailer'
 
 dotenv.config()
 

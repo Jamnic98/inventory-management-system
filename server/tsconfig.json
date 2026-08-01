@@ -1,15 +1,19 @@
 {
   "compilerOptions": {
+    "paths": {
+      "controllers": ["./src/controllers"],
+      "models": ["./src/models"],
+      "routes": ["./src/routes"],
+    },
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": false,               // 👈 Set to false temporarily
-    "noImplicitAny": false,        // 👈 Set to false temporarily
-    "allowJs": true,               // 👈 Allows mixing .js and .ts while converting
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*"]
 }

@@ -1,8 +1,6 @@
 import nodemailer from 'nodemailer'
-import dotenv from 'dotenv'
-dotenv.config()
 
-const sendMessage = (subject, message, recipients) => {
+const sendMessage = (subject: string, message: string, recipients: string[]) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {

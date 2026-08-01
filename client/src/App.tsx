@@ -127,7 +127,7 @@ export default App
 //   });
 
 //   const getAllItems = async () => {
-//     const response = await axios.get("/current-items");
+//     const response = await axios.get("/items");
 //     return response.data.reverse();
 //   };
 
@@ -154,7 +154,7 @@ export default App
 
 //   const addItem = async (item) => {
 //     try {
-//       const response = await axios.post("/current-items/add", item);
+//       const response = await axios.post("/items/add", item);
 //       setAllItems([response.data, ...allItems]);
 //       socket.send(JSON.stringify({ type: "add" }));
 //     } catch (error) {
@@ -185,7 +185,7 @@ export default App
 
 //   const deleteItemById = async (itemId) => {
 //     try {
-//       await axios.delete(`/current-items/${itemId}`);
+//       await axios.delete(`/items/${itemId}`);
 //       socket.send(JSON.stringify({ type: "delete" }));
 //     } catch (error) {
 //       console.error(error);
@@ -195,7 +195,7 @@ export default App
 //   const updateItemById = async (updatedItem) => {
 //     try {
 //       const { _id } = updatedItem;
-//       await axios.put(`/current-items/update/${_id}`, updatedItem);
+//       await axios.put(`/items/update/${_id}`, updatedItem);
 //       socket.send(JSON.stringify({ type: "update" }));
 //     } catch (error) {
 //       console.error(error);
