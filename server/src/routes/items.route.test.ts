@@ -1,134 +1,143 @@
-import mongoose from 'mongoose'
 import supertest from 'supertest'
-import { MongoMemoryServer } from 'mongodb-memory-server'
 
-import app from '../server.js'
-import { ItemModel } from '../models/index.js'
-
-let mongoServer: MongoMemoryServer
-
-const createUniqueID = () => new mongoose.Types.ObjectId().toHexString()
-
-const items = [
-  {
-    _id: createUniqueID(),
-    label: 'beans',
-    quantity: 5,
-    room: 'kitchen',
-    location: 'main cupboard',
-    expirationDate: new Date(),
-    lowStockAlert: false,
-  },
-  {
-    _id: createUniqueID(),
-    label: 'bleach',
-    quantity: 2,
-    room: 'kitchen',
-    location: 'under sink cupboard',
-    expirationDate: new Date(0),
-    lowStockAlert: true,
-  },
-  {
-    _id: createUniqueID(),
-    label: 'beans',
-    quantity: 5,
-    room: 'kitchen',
-    location: 'main cupboard',
-    expirationDate: new Date(),
-    lowStockAlert: false,
-  },
-]
+import app from '../../src/server.js'
+import prisma from '../../src/db.js'
 
 describe('Test the items endpoint', () => {
-  // 1. Start in-memory DB and connect Mongoose before all tests
-  beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create()
-    const uri = mongoServer.getUri()
-    await mongoose.connect(uri)
-  })
-
-  // 2. Seed database fresh before EACH test
-  beforeEach(async () => {
-    await ItemModel.deleteMany({}) // Clear database state
-    await ItemModel.insertMany(items)
-  })
-
-  // 3. Cleanup database and stop server after all tests finish
-  afterAll(async () => {
-    await mongoose.connection.dropDatabase()
-    await mongoose.connection.close()
-    await mongoServer.stop()
-  })
-
   const request = supertest(app)
 
-  test('get all items', async () => {
+  let testLocationId: number
+
+  // Establish database connection and set up a parent location before running tests
+  beforeAll(async () => {
+    await prisma.$connect()
+
+    // Ensure a test location exists to satisfy foreign key constraints
+    const location = await prisma.location.create({
+      data: {
+        label: 'Kitchen Main Cupboard',
+        type: 'STORAGE',
+      },
+    })
+    testLocationId = location.id
+  })
+
+  // Wipe items table and re-seed initial items before EACH test run
+  beforeEach(async () => {
+    await prisma.item.deleteMany()
+
+    await prisma.item.createMany({
+      data: [
+        {
+          label: 'beans',
+          quantity: 5,
+          locationId: testLocationId,
+          expirationDate: new Date(),
+          lowStockAlert: false,
+        },
+        {
+          label: 'bleach',
+          quantity: 2,
+          locationId: testLocationId,
+          expirationDate: new Date(0),
+          lowStockAlert: true,
+        },
+      ],
+    })
+  })
+
+  // Disconnect and clean up seeded test data after all tests complete
+  afterAll(async () => {
+    await prisma.item.deleteMany()
+    await prisma.location.deleteMany()
+    await prisma.$disconnect()
+  })
+
+  test('GET /items - get all items', async () => {
     const response = await request.get('/items').expect(200)
 
+    expect(response.body).toHaveLength(2)
     for (const item of response.body) {
-      const { label, quantity, room, location, expirationDate, lowStockAlert } = item
-      expect(label).toBeTruthy()
-      expect(quantity).toBeTruthy()
-      expect(room).toBeTruthy()
-      expect(location).toBeTruthy()
-      expect(expirationDate).toBeTruthy()
-      expect(lowStockAlert).toBeDefined()
+      expect(item).toHaveProperty('id')
+      expect(item.label).toBeTruthy()
+      expect(item.quantity).toBeDefined()
+      expect(item.locationId).toBe(testLocationId)
+      expect(item.location).toBeDefined() // Verify included relation
+      expect(item.lowStockAlert).toBeDefined()
     }
   })
 
-  test('get item by id', async () => {
-    const { _id } = items[0]
-    const response = await request.get(`/items/${_id}`).expect(200)
+  test('GET /items/:id - get item by id', async () => {
+    const seededItem = await prisma.item.findFirst({
+      where: { label: 'beans' },
+    })
+    expect(seededItem).not.toBeNull()
 
-    const { label, room, location, expirationDate, lowStockAlert } = response.body
-    expect(label).toBeTruthy()
-    expect(room).toBeTruthy()
-    expect(location).toBeTruthy()
-    expect(expirationDate).toBeTruthy()
-    expect(lowStockAlert).toBeDefined()
+    const response = await request.get(`/items/${seededItem!.id}`).expect(200)
+
+    expect(response.body.id).toBe(seededItem!.id)
+    expect(response.body.label).toBe('beans')
+    expect(response.body.locationId).toBe(testLocationId)
+    expect(response.body.lowStockAlert).toBeDefined()
   })
 
-  test('add item', async () => {
-    const item = {
-      _id: createUniqueID(),
+  test('POST /items - add item', async () => {
+    const newItem = {
       label: 'sweetcorn',
       quantity: 2,
-      room: 'kitchen',
-      location: 'main cupboard',
-      expirationDate: new Date(),
+      locationId: testLocationId,
+      expirationDate: new Date().toISOString(),
       lowStockAlert: true,
     }
 
-    const response = await request.post('/items').send(item).expect(201)
+    const response = await request.post('/items').send(newItem).expect(201)
 
-    const { label, room, location, expirationDate, lowStockAlert } = response.body
-    expect(label).toBeTruthy()
-    expect(room).toBeTruthy()
-    expect(location).toBeTruthy()
-    expect(expirationDate).toBeTruthy()
-    expect(lowStockAlert).toBeDefined()
+    expect(response.body).toHaveProperty('id')
+    expect(response.body.label).toBe(newItem.label)
+    expect(response.body.quantity).toBe(newItem.quantity)
+    expect(response.body.locationId).toBe(testLocationId)
+
+    // Verify record exists directly in PostgreSQL
+    const foundInDb = await prisma.item.findUnique({
+      where: { id: response.body.id },
+    })
+    expect(foundInDb).not.toBeNull()
   })
 
-  test('update item by id', async () => {
-    const item = items[1]
-    const updatedItem = { ...item, quantity: item.quantity - 1 }
+  test('PATCH /items/:id - update item by id', async () => {
+    const seededItem = await prisma.item.findFirst({
+      where: { label: 'bleach' },
+    })
+    expect(seededItem).not.toBeNull()
 
-    const response = await request.patch(`/items/${item._id}`).send(updatedItem).expect(200)
+    const updatePayload = {
+      quantity: seededItem!.quantity - 1,
+    }
 
-    const { label, room, location, expirationDate, lowStockAlert } = response.body
-    expect(label).toBeTruthy()
-    expect(room).toBeTruthy()
-    expect(location).toBeTruthy()
-    expect(expirationDate).toBeTruthy()
-    expect(lowStockAlert).toBeDefined()
+    const response = await request.patch(`/items/${seededItem!.id}`).send(updatePayload).expect(200)
+
+    expect(response.body.id).toBe(seededItem!.id)
+    expect(response.body.quantity).toBe(1)
+
+    // Double check update in database
+    const foundInDb = await prisma.item.findUnique({
+      where: { id: seededItem!.id },
+    })
+    expect(foundInDb?.quantity).toBe(1)
   })
 
-  test('delete item by id', async () => {
-    const { _id } = items[0]
-    await request.delete(`/items/${_id}`).expect(204)
+  test('DELETE /items/:id - delete item by id', async () => {
+    const seededItem = await prisma.item.findFirst({
+      where: { label: 'beans' },
+    })
+    expect(seededItem).not.toBeNull()
+
+    await request.delete(`/items/${seededItem!.id}`).expect(204)
 
     // Double check it's actually removed from the database
-    const found = await ItemModel.findById(_id)
-    expect(found).toBeNull()
+    const foundInDb = await prisma.item.findUnique({
+      where: { id: seededItem!.id },
+    })
+    expect(foundInDb).toBeNull()
   })
 })

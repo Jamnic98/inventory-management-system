@@ -1,0 +1,52 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// -------------------------------------------------------------
+// 1. Unified Location Hierarchy (Warehouses, Rooms, Shelves, Bins)
+// -------------------------------------------------------------
+model Location {
+  id        Int      @id @default(autoincrement())
+  label     String
+  type      String   @default("LOCATION") // e.g., 'WAREHOUSE', 'ROOM', 'SHELF'
+
+  // Self-Referencing Tree (Replaces parent: String and children: Array)
+  parentId  Int?     @map("parent_id")
+  parent    Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Location[] @relation("LocationHierarchy")
+
+  // Items stored in this specific location
+  items     Item[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("locations")
+}
+
+// -------------------------------------------------------------
+// 2. Inventory Items Model
+// -------------------------------------------------------------
+model Item {
+  id             Int       @id @default(autoincrement())
+  label          String
+  quantity       Int       @default(0)
+  expirationDate DateTime? @map("expiration_date")
+  lowStockAlert  Boolean   @default(false) @map("low_stock_alert")
+
+  // Foreign key linking directly to the Location table
+  locationId     Int       @map("location_id")
+  location       Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("items")
+}

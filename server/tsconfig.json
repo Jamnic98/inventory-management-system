@@ -3,13 +3,19 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "outDir": "dist",
+    "rootDir": "src",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
     "noImplicitAny": true,
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma.config.ts",
+    "prisma/**/*"
+  ]
 }

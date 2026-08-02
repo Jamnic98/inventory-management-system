@@ -1,23 +1,38 @@
-import mongoose from 'mongoose'
 import http from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import dotenv from 'dotenv'
 
 import app from './server.js'
 import sendMessage from './emailer.js'
+import prisma from './db.js'
 
 dotenv.config()
 
-// constants
 const PORT = process.env.PORT || 8080
-const DB_URI = process.env.MONGODB_URI
 
-// create a websocket server
+// Verify database URL exists before proceeding
+if (!process.env.DATABASE_URL) {
+  console.error('Fatal Error: DATABASE_URL is missing from your .env file!')
+  process.exit(1)
+}
+
+// create HTTP and WebSocket servers
 const server = http.createServer(app)
 const wsServer = new WebSocketServer({ server })
 
+// Test Postgres/Prisma connection at startup
+try {
+  await prisma.$connect()
+  console.log('PostgreSQL database connection established via Prisma.')
+} catch (err) {
+  console.error('Database connection error:', err)
+  process.exit(1)
+}
+
+// Graceful cleanup on WebSocket server close
 wsServer.on('close', async () => {
-  await mongoose.disconnect()
+  await prisma.$disconnect()
+  console.log('Prisma database client disconnected.')
 })
 
 wsServer.on('connection', (ws) => {
@@ -52,21 +67,7 @@ wsServer.on('connection', (ws) => {
   })
 })
 
-// Configure mongoose and connect to database
-try {
-  if (!DB_URI) {
-    throw new Error('MONGODB_URI is missing from your .env file!')
-  }
-
-  // Clean connection call - deprecated options removed
-  await mongoose.connect(DB_URI)
-  console.log('Database connection established.')
-} catch (err) {
-  console.error('MongoDB Connection Error:', err)
-  process.exit(1) // Stop server startup if DB fails to connect
-}
-
-// listen for incoming requests
+// Listen for incoming requests
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}.`)
 })

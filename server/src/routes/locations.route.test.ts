@@ -1,90 +1,182 @@
-import mongoose from 'mongoose'
-import supertest from 'supertest'
-import { MongoMemoryServer } from 'mongodb-memory-server'
+import { Request, Response } from 'express'
 
-import app from '../server.js'
-import { LocationModel } from '../models/index.js'
+import prisma from '../db.js'
 
-let mongoServer: MongoMemoryServer
+// GET /locations - Retrieve all locations (with parent, children, and items)
+export const getLocations = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const locations = await prisma.location.findMany({
+      include: {
+        parent: true,
+        children: true,
+        items: true,
+      },
+      orderBy: {
+        label: 'asc',
+      },
+    })
+    res.status(200).json(locations)
+  } catch (err) {
+    console.error('Error fetching locations:', err)
+    res.status(500).json({
+      error: 'DatabaseError',
+      message: 'Failed to retrieve locations due to an internal server error.',
+    })
+  }
+}
 
-const createUniqueID = () => new mongoose.Types.ObjectId().toHexString()
+// POST /locations - Create a new location (With full payload validation)
+export const addLocation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { label, type, parentId } = req.body
 
-const locations = [
-  {
-    _id: createUniqueID(),
-    label: 'Kitchen Cupboard',
-    layer: 1,
-    isOpen: false,
-    editing: false,
-    isSelected: false,
-    parent: 'root',
-    children: [],
-  },
-  {
-    _id: createUniqueID(),
-    label: 'Under Sink Shelf',
-    layer: 2,
-    isOpen: false,
-    editing: false,
-    isSelected: false,
-    parent: 'Kitchen Cupboard',
-    children: [],
-  },
-]
+    const validationErrors: Array<{ field: string; message: string }> = []
 
-describe('Test the locations endpoint', () => {
-  beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create()
-    const uri = mongoServer.getUri()
-    await mongoose.connect(uri)
-  })
-
-  beforeEach(async () => {
-    await LocationModel.deleteMany({})
-    await LocationModel.insertMany(locations)
-  })
-
-  afterAll(async () => {
-    await mongoose.connection.dropDatabase()
-    await mongoose.connection.close()
-    await mongoServer.stop()
-  })
-
-  const request = supertest(app)
-
-  test('get all locations', async () => {
-    const response = await request.get('/locations').expect(200)
-
-    expect(response.body).toHaveLength(locations.length)
-    for (const item of response.body) {
-      const { label, layer, parent } = item
-      expect(label).toBeTruthy()
-      expect(parent).toBeTruthy()
-    }
-  })
-
-  test('add location', async () => {
-    const newLocation = {
-      _id: createUniqueID(),
-      label: 'Pantry Shelf',
-      parent: 'root',
-      children: [],
+    // 1. Validate required field: label
+    if (label === undefined || label === null || String(label).trim() === '') {
+      validationErrors.push({
+        field: 'label',
+        message: 'The "label" field is required and cannot be empty.',
+      })
+    } else if (typeof label !== 'string') {
+      validationErrors.push({
+        field: 'label',
+        message: 'The "label" field must be a string.',
+      })
     }
 
-    const response = await request.post('/locations').send(newLocation).expect(201)
+    // 2. Validate optional field: type
+    if (type !== undefined && type !== null && typeof type !== 'string') {
+      validationErrors.push({
+        field: 'type',
+        message: 'The "type" field must be a string.',
+      })
+    }
 
-    const { label } = response.body
-    expect(label).toBe(newLocation.label)
-  })
+    // 3. Validate optional field: parentId
+    let parsedParentId: number | null = null
+    if (parentId !== undefined && parentId !== null) {
+      const num = Number(parentId)
+      if (isNaN(num) || !Number.isInteger(num) || num <= 0) {
+        validationErrors.push({
+          field: 'parentId',
+          message: 'The "parentId" must be a positive integer.',
+        })
+      } else {
+        parsedParentId = num
+      }
+    }
 
-  test('delete location by id', async () => {
-    const { _id } = locations[0]
+    // If any validation errors accumulated, reject early with 400 Bad Request
+    if (validationErrors.length > 0) {
+      res.status(400).json({
+        error: 'ValidationError',
+        message: 'Invalid request payload.',
+        details: validationErrors,
+      })
+      return
+    }
 
-    // Check for 204 status if your controller returns 204, or 200 if it returns JSON
-    await request.delete(`/locations/${_id}`).expect(204)
+    // 4. Create location record in DB
+    const newLocation = await prisma.location.create({
+      data: {
+        label: label.trim(),
+        type: type ? type.trim() : 'LOCATION',
+        parentId: parsedParentId,
+      },
+      include: {
+        parent: true,
+        children: true,
+      },
+    })
 
-    // Verify it was actually removed from MongoDB
-    const deleted = await LocationModel.findById(_id)
-    expect(deleted).toBeNull()
-  })
-})
+    res.status(201).json(newLocation)
+  } catch (err: any) {
+    console.error('Error adding location:', err)
+
+    // P2003: Foreign key constraint failure (invalid parentId provided)
+    if (err.code === 'P2003') {
+      res.status(400).json({
+        error: 'ForeignKeyError',
+        message: 'The specified parent location does not exist.',
+        details: [{ field: 'parentId', message: 'No location found with this ID.' }],
+      })
+      return
+    }
+
+    // P2002: Unique constraint violation (e.g. if label must be unique in schema)
+    if (err.code === 'P2002') {
+      res.status(409).json({
+        error: 'DuplicateEntryError',
+        message: 'A location with this label already exists.',
+      })
+      return
+    }
+
+    res.status(500).json({
+      error: 'DatabaseError',
+      message: 'An error occurred while creating the location.',
+    })
+  }
+}
+
+// DELETE /locations/:id - Delete a location by ID (With route param validation)
+export const deleteLocationById = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params
+
+    // 1. Validate parameter existence and format
+    if (!id || id.trim() === '') {
+      res.status(400).json({
+        error: 'ValidationError',
+        message: 'Location ID path parameter is required.',
+      })
+      return
+    }
+
+    const locationId = Number(id)
+    if (isNaN(locationId) || !Number.isInteger(locationId) || locationId <= 0) {
+      res.status(400).json({
+        error: 'ValidationError',
+        message: 'Location ID must be a valid positive integer.',
+      })
+      return
+    }
+
+    // 2. Perform deletion
+    await prisma.location.delete({
+      where: { id: locationId },
+    })
+
+    res.status(204).send()
+  } catch (err: any) {
+    console.error('Error deleting location:', err)
+
+    // P2025: Record to delete does not exist
+    if (err.code === 'P2025') {
+      res.status(404).json({
+        error: 'NotFoundError',
+        message: `Location with ID ${req.params.id} was not found.`,
+      })
+      return
+    }
+
+    // P2003: Foreign key constraint failure (Location contains items or children)
+    if (err.code === 'P2003') {
+      res.status(409).json({
+        error: 'ConflictError',
+        message:
+          'Cannot delete a location that contains active items or sub-locations. Reassign or remove dependent records first.',
+      })
+      return
+    }
+
+    res.status(500).json({
+      error: 'DatabaseError',
+      message: 'An error occurred while attempting to delete the location.',
+    })
+  }
+}

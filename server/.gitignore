@@ -26,3 +26,9 @@ yarn-debug.log*
 yarn-error.log*
 
 babel.config.json
+/src/generated/prisma
+
+# AI Coding Assistant Caches & Configs
+.agents/
+.claude/
+.windsurf/

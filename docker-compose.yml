@@ -1,15 +1,27 @@
 services:
-  mongo:
+  db:
     container_name: ims-db
-    image: mongo:7.0
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-imssecret}
+      POSTGRES_USER: ${POSTGRES_USER:-dbuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-imssecret}
+      POSTGRES_DB: ${POSTGRES_DB:-inventory_management_system}
+    ports:
+      - "5432:5432"
     volumes:
-      - ims-data:/data/db
+      - ims-db-data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-dbuser} -d ${POSTGRES_DB:-inventory_management_system}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   loadbalancer:
     container_name: loadbalancer
@@ -46,10 +58,11 @@ services:
     expose:
       - "8080"
     depends_on:
-      - mongo
+      db:
+        condition: service_healthy
 
 networks:
   app-network:
 
 volumes:
-  ims-data:
+  ims-db-data:
