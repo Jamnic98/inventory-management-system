@@ -55,7 +55,7 @@ describe('Test the emails endpoint', () => {
       address: 'newuser@example.com',
     }
 
-    const response = await request.post('/emails/add').send(newEmail).expect(201)
+    const response = await request.post('/emails').send(newEmail).expect(201)
 
     const { address } = response.body
     expect(address).toBe(newEmail.address)

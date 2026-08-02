@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 
 const itemSchema = new mongoose.Schema({
-  name: String,
+  label: String,
   quantity: Number,
   room: String,
   location: String,

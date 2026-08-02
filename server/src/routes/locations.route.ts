@@ -4,8 +4,8 @@ import { getLocations, addLocation, deleteLocationById } from '../controllers/in
 
 const router = express.Router()
 
-router.get('/', getLocations)
-router.post('/add', addLocation)
+router.get('', getLocations)
+router.post('', addLocation)
 router.delete('/:id', deleteLocationById)
 
 export default router

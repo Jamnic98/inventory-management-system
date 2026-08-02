@@ -40,21 +40,31 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
 
 export const updateItemByID = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, quantity, room, location, expirationDate, lowStockAlert } = req.body
+    const { label, quantity, room, location, expirationDate, lowStockAlert } = req.body
 
-    const updateData: Record<string, any> = {
-      name,
-      quantity: quantity !== undefined ? Number(quantity) : undefined,
-      room,
-      location,
-      lowStockAlert,
+    // 1. Dynamically build update payload with only provided fields
+    // TODO: move to a types file
+    type ItemUpdateData = {
+      label?: string
+      quantity?: number
+      room?: string
+      location?: string
+      lowStockAlert?: boolean
+      expirationDate?: Date
     }
+    const updateData: ItemUpdateData = {}
 
-    // Safely parse date only if provided
+    if (label !== undefined) updateData.label = label
+    if (quantity !== undefined) updateData.quantity = Number(quantity)
+    if (room !== undefined) updateData.room = room
+    if (location !== undefined) updateData.location = location
+    if (lowStockAlert !== undefined) updateData.lowStockAlert = lowStockAlert
+
     if (expirationDate) {
       updateData.expirationDate = new Date(expirationDate)
     }
 
+    // 2. Perform update
     const updatedItem = await Item.findByIdAndUpdate(req.params.id, updateData, {
       returnDocument: 'after',
       runValidators: true,

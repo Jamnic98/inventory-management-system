@@ -10,10 +10,10 @@ import {
 
 const router = express.Router()
 
-router.get('/', getItems)
+router.get('', getItems)
 router.get('/:id', getItemByID)
-router.post('/add', addItem)
-router.put('/update/:id', updateItemByID)
+router.post('', addItem)
+router.patch('/:id', updateItemByID)
 router.delete('/:id', deleteItemByID)
 
 export default router

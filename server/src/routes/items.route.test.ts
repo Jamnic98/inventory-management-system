@@ -12,7 +12,7 @@ const createUniqueID = () => new mongoose.Types.ObjectId().toHexString()
 const items = [
   {
     _id: createUniqueID(),
-    name: 'beans',
+    label: 'beans',
     quantity: 5,
     room: 'kitchen',
     location: 'main cupboard',
@@ -21,7 +21,7 @@ const items = [
   },
   {
     _id: createUniqueID(),
-    name: 'bleach',
+    label: 'bleach',
     quantity: 2,
     room: 'kitchen',
     location: 'under sink cupboard',
@@ -30,7 +30,7 @@ const items = [
   },
   {
     _id: createUniqueID(),
-    name: 'beans',
+    label: 'beans',
     quantity: 5,
     room: 'kitchen',
     location: 'main cupboard',
@@ -66,8 +66,8 @@ describe('Test the items endpoint', () => {
     const response = await request.get('/items').expect(200)
 
     for (const item of response.body) {
-      const { name, quantity, room, location, expirationDate, lowStockAlert } = item
-      expect(name).toBeTruthy()
+      const { label, quantity, room, location, expirationDate, lowStockAlert } = item
+      expect(label).toBeTruthy()
       expect(quantity).toBeTruthy()
       expect(room).toBeTruthy()
       expect(location).toBeTruthy()
@@ -80,8 +80,8 @@ describe('Test the items endpoint', () => {
     const { _id } = items[0]
     const response = await request.get(`/items/${_id}`).expect(200)
 
-    const { name, room, location, expirationDate, lowStockAlert } = response.body
-    expect(name).toBeTruthy()
+    const { label, room, location, expirationDate, lowStockAlert } = response.body
+    expect(label).toBeTruthy()
     expect(room).toBeTruthy()
     expect(location).toBeTruthy()
     expect(expirationDate).toBeTruthy()
@@ -91,7 +91,7 @@ describe('Test the items endpoint', () => {
   test('add item', async () => {
     const item = {
       _id: createUniqueID(),
-      name: 'sweetcorn',
+      label: 'sweetcorn',
       quantity: 2,
       room: 'kitchen',
       location: 'main cupboard',
@@ -99,10 +99,10 @@ describe('Test the items endpoint', () => {
       lowStockAlert: true,
     }
 
-    const response = await request.post('/items/add').send(item).expect(201)
+    const response = await request.post('/items').send(item).expect(201)
 
-    const { name, room, location, expirationDate, lowStockAlert } = response.body
-    expect(name).toBeTruthy()
+    const { label, room, location, expirationDate, lowStockAlert } = response.body
+    expect(label).toBeTruthy()
     expect(room).toBeTruthy()
     expect(location).toBeTruthy()
     expect(expirationDate).toBeTruthy()
@@ -113,10 +113,10 @@ describe('Test the items endpoint', () => {
     const item = items[1]
     const updatedItem = { ...item, quantity: item.quantity - 1 }
 
-    const response = await request.put(`/items/update/${item._id}`).send(updatedItem).expect(200)
+    const response = await request.patch(`/items/${item._id}`).send(updatedItem).expect(200)
 
-    const { name, room, location, expirationDate, lowStockAlert } = response.body
-    expect(name).toBeTruthy()
+    const { label, room, location, expirationDate, lowStockAlert } = response.body
+    expect(label).toBeTruthy()
     expect(room).toBeTruthy()
     expect(location).toBeTruthy()
     expect(expirationDate).toBeTruthy()
