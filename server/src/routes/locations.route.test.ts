@@ -3,7 +3,7 @@ import supertest from 'supertest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 
 import app from '../server.js'
-import { Location } from '../models/index.js'
+import { LocationModel } from '../models/index.js'
 
 let mongoServer: MongoMemoryServer
 
@@ -40,8 +40,8 @@ describe('Test the locations endpoint', () => {
   })
 
   beforeEach(async () => {
-    await Location.deleteMany({})
-    await Location.insertMany(locations)
+    await LocationModel.deleteMany({})
+    await LocationModel.insertMany(locations)
   })
 
   afterAll(async () => {
@@ -84,7 +84,7 @@ describe('Test the locations endpoint', () => {
     await request.delete(`/locations/${_id}`).expect(204)
 
     // Verify it was actually removed from MongoDB
-    const deleted = await Location.findById(_id)
+    const deleted = await LocationModel.findById(_id)
     expect(deleted).toBeNull()
   })
 })

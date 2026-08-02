@@ -5,6 +5,6 @@ const emailSchema = new mongoose.Schema({
   address: String,
 })
 
-const Email = mongoose.model('Email', emailSchema, 'emails')
+const EmailModel = mongoose.model('EmailModel', emailSchema, 'emails')
 
-export default Email
+export default EmailModel

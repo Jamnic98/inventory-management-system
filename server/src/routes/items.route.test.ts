@@ -3,7 +3,7 @@ import supertest from 'supertest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 
 import app from '../server.js'
-import { Item } from '../models/index.js'
+import { ItemModel } from '../models/index.js'
 
 let mongoServer: MongoMemoryServer
 
@@ -49,8 +49,8 @@ describe('Test the items endpoint', () => {
 
   // 2. Seed database fresh before EACH test
   beforeEach(async () => {
-    await Item.deleteMany({}) // Clear database state
-    await Item.insertMany(items)
+    await ItemModel.deleteMany({}) // Clear database state
+    await ItemModel.insertMany(items)
   })
 
   // 3. Cleanup database and stop server after all tests finish
@@ -128,7 +128,7 @@ describe('Test the items endpoint', () => {
     await request.delete(`/items/${_id}`).expect(204)
 
     // Double check it's actually removed from the database
-    const found = await Item.findById(_id)
+    const found = await ItemModel.findById(_id)
     expect(found).toBeNull()
   })
 })

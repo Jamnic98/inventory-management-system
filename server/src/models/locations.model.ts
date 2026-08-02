@@ -7,6 +7,6 @@ const locationSchema = new mongoose.Schema({
   children: Array,
 })
 
-const Location = mongoose.model('Location', locationSchema, 'locations')
+const LocationModel = mongoose.model('LocationModel', locationSchema, 'locations')
 
-export default Location
+export default LocationModel

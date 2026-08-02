@@ -3,7 +3,7 @@ import supertest from 'supertest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 
 import app from '../server.js'
-import { Email } from '../models/index.js'
+import { EmailModel } from '../models/index.js'
 
 let mongoServer: MongoMemoryServer
 
@@ -28,8 +28,8 @@ describe('Test the emails endpoint', () => {
   })
 
   beforeEach(async () => {
-    await Email.deleteMany({})
-    await Email.insertMany(emails)
+    await EmailModel.deleteMany({})
+    await EmailModel.insertMany(emails)
   })
 
   afterAll(async () => {
@@ -66,7 +66,7 @@ describe('Test the emails endpoint', () => {
     await request.delete(`/emails/${_id}`).expect(204)
 
     // Double check it's actually removed from the database
-    const found = await Email.findById(_id)
+    const found = await EmailModel.findById(_id)
     expect(found).toBeNull()
   })
 })

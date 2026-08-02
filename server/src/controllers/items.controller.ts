@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
 
-import { Item } from '../models/index.js'
+import { ItemModel } from '../models/index.js'
 
 export const getItems = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await Item.find()
+    const items = await ItemModel.find()
     res.status(200).json(items)
   } catch (err) {
     console.error('Error fetching items:', err)
@@ -14,10 +14,10 @@ export const getItems = async (_req: Request, res: Response): Promise<void> => {
 
 export const getItemByID = async (req: Request, res: Response): Promise<void> => {
   try {
-    const item = await Item.findById(req.params.id)
+    const item = await ItemModel.findById(req.params.id)
 
     if (!item) {
-      res.status(404).json({ error: 'Item not found' })
+      res.status(404).json({ error: 'ItemModel not found' })
       return
     }
 
@@ -30,7 +30,7 @@ export const getItemByID = async (req: Request, res: Response): Promise<void> =>
 
 export const addItem = async (req: Request, res: Response): Promise<void> => {
   try {
-    const newItem = await Item.create(req.body)
+    const newItem = await ItemModel.create(req.body)
     res.status(201).json(newItem)
   } catch (err) {
     console.error('Error adding item:', err)
@@ -65,13 +65,13 @@ export const updateItemByID = async (req: Request, res: Response): Promise<void>
     }
 
     // 2. Perform update
-    const updatedItem = await Item.findByIdAndUpdate(req.params.id, updateData, {
+    const updatedItem = await ItemModel.findByIdAndUpdate(req.params.id, updateData, {
       returnDocument: 'after',
       runValidators: true,
     })
 
     if (!updatedItem) {
-      res.status(404).json({ error: 'Item not found' })
+      res.status(404).json({ error: 'ItemModel not found' })
       return
     }
 
@@ -84,10 +84,10 @@ export const updateItemByID = async (req: Request, res: Response): Promise<void>
 
 export const deleteItemByID = async (req: Request, res: Response): Promise<void> => {
   try {
-    const deletedItem = await Item.findByIdAndDelete(req.params.id)
+    const deletedItem = await ItemModel.findByIdAndDelete(req.params.id)
 
     if (!deletedItem) {
-      res.status(404).json({ error: 'Item not found' })
+      res.status(404).json({ error: 'ItemModel not found' })
       return
     }
 

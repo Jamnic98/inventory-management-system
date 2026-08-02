@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
 
-import { Email } from '../models/index.js'
+import { EmailModel } from '../models/index.js'
 
 export const getEmails = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const emails = await Email.find()
+    const emails = await EmailModel.find()
     res.status(200).json(emails)
   } catch (err) {
     console.error('Error fetching emails:', err)
@@ -17,11 +17,11 @@ export const addEmail = async (req: Request, res: Response): Promise<void> => {
     const { address } = req.body
 
     if (!address) {
-      res.status(400).json({ error: 'Email address is required' })
+      res.status(400).json({ error: 'EmailModel address is required' })
       return
     }
 
-    const newEmail = await Email.create({ address })
+    const newEmail = await EmailModel.create({ address })
     res.status(201).json(newEmail)
   } catch (err) {
     console.error('Error adding email:', err)
@@ -33,10 +33,10 @@ export const deleteEmailById = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params
 
-    const deletedEmail = await Email.findByIdAndDelete(id)
+    const deletedEmail = await EmailModel.findByIdAndDelete(id)
 
     if (!deletedEmail) {
-      res.status(404).json({ error: 'Email not found' })
+      res.status(404).json({ error: 'EmailModel not found' })
       return
     }
 

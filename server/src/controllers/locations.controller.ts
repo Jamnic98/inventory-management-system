@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
 
-import { Location } from '../models/index.js'
+import { LocationModel } from '../models/index.js'
 
 export const getLocations = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const locations = await Location.find()
+    const locations = await LocationModel.find()
     res.status(200).json(locations)
   } catch (err) {
     console.error('Error fetching locations:', err)
@@ -14,7 +14,7 @@ export const getLocations = async (_req: Request, res: Response): Promise<void> 
 
 export const addLocation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const newLocation = await Location.create(req.body)
+    const newLocation = await LocationModel.create(req.body)
     res.status(201).json(newLocation)
   } catch (err) {
     console.error('Error adding location:', err)
@@ -24,10 +24,10 @@ export const addLocation = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteLocationById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const deletedLocation = await Location.findByIdAndDelete(req.params.id)
+    const deletedLocation = await LocationModel.findByIdAndDelete(req.params.id)
 
     if (!deletedLocation) {
-      res.status(404).json({ error: 'Location not found' })
+      res.status(404).json({ error: 'LocationModel not found' })
       return
     }
 

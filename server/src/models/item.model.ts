@@ -9,6 +9,6 @@ const itemSchema = new mongoose.Schema({
   lowStockAlert: Boolean,
 })
 
-const Item = mongoose.model('Item', itemSchema, 'items')
+const ItemModel = mongoose.model('ItemModel', itemSchema, 'items')
 
-export default Item
+export default ItemModel
