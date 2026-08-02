@@ -16,7 +16,7 @@ const sendMessage = (subject: string, message: string, recipients: string[]) => 
     html: message,
   }
 
-  transporter.sendMail(mailOptions, (error, info) => {
+  transporter.sendMail(mailOptions, (error, _info) => {
     if (error) {
       console.error(error)
     }

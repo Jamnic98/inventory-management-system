@@ -1,6 +1,6 @@
 import express from 'express'
 
-import { getEmails, addEmail, deleteEmailById } from 'controllers'
+import { getEmails, addEmail, deleteEmailById } from '../controllers/index.js'
 
 const router = express.Router()
 

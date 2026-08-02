@@ -3,8 +3,8 @@ import http from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import dotenv from 'dotenv'
 
-import app from './server'
-import sendMessage from './emailer'
+import app from './server.js'
+import sendMessage from './emailer.js'
 
 dotenv.config()
 

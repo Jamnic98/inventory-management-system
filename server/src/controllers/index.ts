@@ -1,3 +1,3 @@
-export * from './emails.controller'
-export * from './items.controller'
-export * from './locations.controller'
+export * from './emails.controller.js'
+export * from './items.controller.js'
+export * from './locations.controller.js'

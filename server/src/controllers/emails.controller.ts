@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 
-import { Email } from 'models'
+import { Email } from '../models/index.js'
 
 export const getEmails = async (_req: Request, res: Response): Promise<void> => {
   try {

@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 
-import { Emails, Items, Locations } from 'routes'
+import { Emails, Items, Locations } from './routes/index.js'
 
 // express configuration
 const app = express()

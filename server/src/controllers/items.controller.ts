@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 
-import { Item } from 'models'
+import { Item } from '../models/index.js'
 
 export const getItems = async (_req: Request, res: Response): Promise<void> => {
   try {

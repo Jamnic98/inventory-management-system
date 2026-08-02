@@ -2,8 +2,8 @@ import mongoose from 'mongoose'
 import supertest from 'supertest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 
-import app from '../server'
-import { Item } from 'models'
+import app from '../server.js'
+import { Item } from '../models/index.js'
 
 let mongoServer: MongoMemoryServer
 
