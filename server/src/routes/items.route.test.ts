@@ -26,6 +26,10 @@ describe('Test the items endpoint', () => {
   beforeEach(async () => {
     await prisma.item.deleteMany()
 
+    // Create dates for testing opened expiration
+    const tenDaysAgo = new Date()
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10)
+
     await prisma.item.createMany({
       data: [
         {
@@ -33,14 +37,21 @@ describe('Test the items endpoint', () => {
           quantity: 5,
           locationId: testLocationId,
           expirationDate: new Date(),
-          lowStockAlert: false,
+          lowStockThreshold: 2, // quantity (5) > threshold (2) -> isLowStock: false
         },
         {
           label: 'bleach',
-          quantity: 2,
+          quantity: 1,
           locationId: testLocationId,
-          expirationDate: new Date(0),
-          lowStockAlert: true,
+          lowStockThreshold: 3, // quantity (1) <= threshold (3) -> isLowStock: true
+        },
+        {
+          label: 'opened milk',
+          quantity: 1,
+          locationId: testLocationId,
+          openedOn: tenDaysAgo,
+          useWithinDays: 7, // Opened 10 days ago with 7 days limit -> isOpenedExpired: true
+          lowStockThreshold: 1,
         },
       ],
     })
@@ -53,18 +64,26 @@ describe('Test the items endpoint', () => {
     await prisma.$disconnect()
   })
 
-  test('GET /items - get all items', async () => {
+  test('GET /items - get all items with enriched computed properties', async () => {
     const response = await request.get('/items').expect(200)
 
-    expect(response.body).toHaveLength(2)
+    expect(response.body).toHaveLength(3)
     for (const item of response.body) {
       expect(item).toHaveProperty('id')
       expect(item.label).toBeTruthy()
       expect(item.quantity).toBeDefined()
       expect(item.locationId).toBe(testLocationId)
       expect(item.location).toBeDefined() // Verify included relation
-      expect(item.lowStockAlert).toBeDefined()
+      expect(item).toHaveProperty('isLowStock')
+      expect(item).toHaveProperty('isOpenedExpired')
     }
+
+    // Check computed flags on specific items
+    const milk = response.body.find((i: any) => i.label === 'opened milk')
+    expect(milk.isOpenedExpired).toBe(true)
+
+    const bleach = response.body.find((i: any) => i.label === 'bleach')
+    expect(bleach.isLowStock).toBe(true)
   })
 
   test('GET /items/:id - get item by id', async () => {
@@ -78,16 +97,19 @@ describe('Test the items endpoint', () => {
     expect(response.body.id).toBe(seededItem!.id)
     expect(response.body.label).toBe('beans')
     expect(response.body.locationId).toBe(testLocationId)
-    expect(response.body.lowStockAlert).toBeDefined()
+    expect(response.body.lowStockThreshold).toBe(2)
+    expect(response.body.isLowStock).toBe(false)
   })
 
-  test('POST /items - add item', async () => {
+  test('POST /items - add item with openedOn and useWithinDays', async () => {
     const newItem = {
-      label: 'sweetcorn',
+      label: 'orange juice',
       quantity: 2,
       locationId: testLocationId,
       expirationDate: new Date().toISOString(),
-      lowStockAlert: true,
+      openedOn: new Date().toISOString(),
+      useWithinDays: 5,
+      lowStockThreshold: 1,
     }
 
     const response = await request.post('/items').send(newItem).expect(201)
@@ -96,34 +118,48 @@ describe('Test the items endpoint', () => {
     expect(response.body.label).toBe(newItem.label)
     expect(response.body.quantity).toBe(newItem.quantity)
     expect(response.body.locationId).toBe(testLocationId)
+    expect(response.body.useWithinDays).toBe(5)
+    expect(response.body.lowStockThreshold).toBe(1)
+    expect(response.body.isLowStock).toBe(false)
+    expect(response.body.isOpenedExpired).toBe(false)
 
     // Verify record exists directly in PostgreSQL
     const foundInDb = await prisma.item.findUnique({
       where: { id: response.body.id },
     })
     expect(foundInDb).not.toBeNull()
+    expect(foundInDb?.useWithinDays).toBe(5)
   })
 
-  test('PATCH /items/:id - update item by id', async () => {
+  test('PATCH /items/:id - update item openedOn date and lowStockThreshold', async () => {
     const seededItem = await prisma.item.findFirst({
       where: { label: 'bleach' },
     })
     expect(seededItem).not.toBeNull()
 
+    const now = new Date()
     const updatePayload = {
-      quantity: seededItem!.quantity - 1,
+      quantity: 5,
+      openedOn: now.toISOString(),
+      useWithinDays: 14,
+      lowStockThreshold: 2,
     }
 
     const response = await request.patch(`/items/${seededItem!.id}`).send(updatePayload).expect(200)
 
     expect(response.body.id).toBe(seededItem!.id)
-    expect(response.body.quantity).toBe(1)
+    expect(response.body.quantity).toBe(5)
+    expect(response.body.useWithinDays).toBe(14)
+    expect(response.body.lowStockThreshold).toBe(2)
+    // Quantity (5) > threshold (2) -> isLowStock should now be false
+    expect(response.body.isLowStock).toBe(false)
 
     // Double check update in database
     const foundInDb = await prisma.item.findUnique({
       where: { id: seededItem!.id },
     })
-    expect(foundInDb?.quantity).toBe(1)
+    expect(foundInDb?.quantity).toBe(5)
+    expect(foundInDb?.lowStockThreshold).toBe(2)
   })
 
   test('DELETE /items/:id - delete item by id', async () => {

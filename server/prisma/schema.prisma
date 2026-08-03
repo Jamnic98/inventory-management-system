@@ -35,18 +35,39 @@ model Location {
 // 2. Inventory Items Model
 // -------------------------------------------------------------
 model Item {
-  id             Int       @id @default(autoincrement())
-  label          String
-  quantity       Int       @default(0)
-  expirationDate DateTime? @map("expiration_date")
-  lowStockAlert  Boolean   @default(false) @map("low_stock_alert")
+  id                Int       @id @default(autoincrement())
+  label             String
+  quantity          Int       @default(0)
+  
+  // Date tracking (optional for food/perishables)
+  expirationDate    DateTime? @map("expiration_date")
+  openedOn          DateTime? @map("opened_on")
+  useWithinDays     Int?      @map("use_within_days") // "Once opened, use within X days"
+
+  // Quantitative stock alert threshold (null = no alert set)
+  lowStockThreshold Int?      @map("low_stock_threshold")
 
   // Foreign key linking directly to the Location table
-  locationId     Int       @map("location_id")
-  location       Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  locationId        Int       @map("location_id")
+  location          Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@map("items")
+}
+
+
+// -------------------------------------------------------------
+// 3. Users Model
+// -------------------------------------------------------------
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String
+  loginToken  String?  @unique @map("login_token") // The 1-click token
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
 }
