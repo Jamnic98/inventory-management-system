@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss(),],
   server: {
+    host: true,
     port: 5173,
     // Recommended if your Express backend runs on port 8080:
     proxy: {
