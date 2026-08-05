@@ -3,10 +3,14 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(),],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    tsconfigPaths: true,
+  },
   server: {
     host: true,
     port: 5173,
+    
     // Recommended if your Express backend runs on port 8080:
     proxy: {
       "/api": "http://localhost:8080",

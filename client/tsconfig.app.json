@@ -22,7 +22,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src/**/*", "vite.config.ts"],
   "exclude": [
     "src/components/[old]",
     "src/components/\\[old\\]"

@@ -20,12 +20,18 @@ RUN npm run build
 FROM node:24-slim AS production
 WORKDIR /app
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 # Install production dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
 # Copy Prisma schema and regenerate client engine files for production
+COPY prisma.config.ts ./
 COPY prisma ./prisma
+
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+
 RUN npx prisma generate
 
 # Copy compiled TS output and generated client if located outside node_modules
