@@ -11,8 +11,8 @@ app.use(express.urlencoded({ extended: false }))
 app.use(cors())
 app.use(cookieParser())
 
-app.use('/items', Items)
-app.use('/locations', Locations)
-app.use('/users', Users)
+app.use('/api/items', Items)
+app.use('/api/locations', Locations)
+app.use('/api/users', Users)
 
 export default app
