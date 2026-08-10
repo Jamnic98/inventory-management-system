@@ -1,12 +1,15 @@
 import { Request, Response } from 'express'
 import crypto from 'crypto'
+import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
+import { handlePrismaError } from '../middleware/index.js'
+import { parseId } from '../utils/index.js'
 
 // Helper to generate a 32-character magic token
 const generateToken = (): string => crypto.randomBytes(16).toString('hex')
 
-// GET /users - Retrieve all household users
+// GET /api/v1/users - Retrieve all household users
 export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   try {
     const users = await prisma.user.findMany({
@@ -20,16 +23,16 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
       orderBy: { name: 'asc' },
     })
     res.status(200).json(users)
-  } catch (err) {
-    console.error('Error fetching users:', err)
-    res.status(500).json({ error: 'Failed to retrieve users' })
+  } catch (error: unknown) {
+    console.error('Error fetching users:', error)
+    handlePrismaError(error, res, 'Failed to retrieve users')
   }
 }
 
-// GET /users/:id - Retrieve user by ID
+// GET /api/v1/users/:id - Retrieve user by ID
 export const getUserByID = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const userId = parseInt(req.params.id, 10)
+    const userId = parseId(req.params.id)
     if (isNaN(userId)) {
       res.status(400).json({ error: 'Invalid ID format' })
       return
@@ -43,6 +46,7 @@ export const getUserByID = async (req: Request<{ id: string }>, res: Response): 
         name: true,
         createdAt: true,
         updatedAt: true,
+        settings: true,
       },
     })
 
@@ -52,29 +56,41 @@ export const getUserByID = async (req: Request<{ id: string }>, res: Response): 
     }
 
     res.status(200).json(user)
-  } catch (err) {
-    console.error('Error fetching user:', err)
-    res.status(500).json({ error: 'Failed to retrieve user' })
+  } catch (error: unknown) {
+    console.error('Error fetching user:', error)
+    handlePrismaError(error, res, 'Failed to retrieve user')
   }
 }
 
-// POST /users - Create user & generate magic login link
+// POST /api/v1/users - Create user, initial settings, & generate magic login link
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, email } = req.body
 
-    if (!name || !email) {
-      res.status(400).json({ error: 'Name and email are required' })
+    // 1. Whitespace & validation checks
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({ error: 'Name is required and cannot be blank' })
       return
     }
 
+    if (!email || typeof email !== 'string' || email.trim().length === 0) {
+      res.status(400).json({ error: 'Email is required and cannot be blank' })
+      return
+    }
+
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim().toLowerCase()
     const token = generateToken()
 
+    // 2. Create user and initialize default UserSettings in a single transaction
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
+        name: trimmedName,
+        email: trimmedEmail,
         loginToken: token,
+        settings: {
+          create: {}, // Auto-creates default UserSettings record
+        },
       },
       select: {
         id: true,
@@ -87,7 +103,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     const host = req.get('host') || 'localhost:8080'
     const protocol = req.protocol
-    const magicLink = `${protocol}://${host}/api/users/login?token=${token}`
+    const magicLink = `${protocol}://${host}/api/v1/users/login?token=${token}`
 
     res.status(201).json({
       message: 'User created successfully',
@@ -99,65 +115,68 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       magicLink,
       token,
     })
-  } catch (err: any) {
-    console.error('Error creating user:', err)
-
-    if (err.code === 'P2002') {
-      res.status(409).json({ error: 'A user with this email already exists' })
-      return
-    }
-
-    res.status(500).json({ error: 'Failed to create user' })
+  } catch (error: unknown) {
+    console.error('Error creating user:', error)
+    handlePrismaError(error, res, 'Failed to create user')
   }
 }
 
-// GET /users/login - Auto-login using magic link token
-export const loginWithToken = async (req: Request, res: Response): Promise<void> => {
+// PATCH /api/v1/users/:id - Update user details
+export const updateUserByID = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
   try {
-    const { token } = req.query
-
-    if (!token || typeof token !== 'string') {
-      res.status(400).json({ error: 'Invalid or missing login token' })
+    const userId = parseId(req.params.id)
+    if (isNaN(userId)) {
+      res.status(400).json({ error: 'Invalid ID format' })
       return
     }
 
-    const user = await prisma.user.findUnique({
-      where: { loginToken: token },
-    })
+    const { name, email } = req.body
+    const updateData: Prisma.UserUpdateInput = {}
 
-    if (!user) {
-      res.status(401).json({ error: 'Invalid or expired magic link token' })
-      return
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
+        res.status(400).json({ error: 'Name cannot be blank' })
+        return
+      }
+      updateData.name = name.trim()
     }
 
-    // Set 1-year session cookie for LAN devices
-    res.cookie('user_session', String(user.id), {
-      httpOnly: true,
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-      sameSite: 'lax',
-    })
+    if (email !== undefined) {
+      if (typeof email !== 'string' || email.trim().length === 0) {
+        res.status(400).json({ error: 'Email cannot be blank' })
+        return
+      }
+      updateData.email = email.trim().toLowerCase()
+    }
 
-    res.status(200).json({
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        updatedAt: true,
       },
     })
-  } catch (err) {
-    console.error('Error logging in with token:', err)
-    res.status(500).json({ error: 'Failed to authenticate token' })
+
+    res.status(200).json(updatedUser)
+  } catch (error: unknown) {
+    console.error('Error updating user:', error)
+    handlePrismaError(error, res, 'Failed to update user')
   }
 }
 
-// DELETE /users/:id - Delete a user
+// DELETE /api/v1/users/:id - Delete a user
 export const deleteUserByID = async (
   req: Request<{ id: string }>,
   res: Response
 ): Promise<void> => {
   try {
-    const userId = parseInt(req.params.id, 10)
+    const userId = parseId(req.params.id)
     if (isNaN(userId)) {
       res.status(400).json({ error: 'Invalid ID format' })
       return
@@ -165,14 +184,8 @@ export const deleteUserByID = async (
 
     await prisma.user.delete({ where: { id: userId } })
     res.status(204).send()
-  } catch (err: any) {
-    console.error('Error deleting user:', err)
-
-    if (err.code === 'P2025') {
-      res.status(404).json({ error: 'User not found' })
-      return
-    }
-
-    res.status(500).json({ error: 'Failed to delete user' })
+  } catch (error: unknown) {
+    console.error('Error deleting user:', error)
+    handlePrismaError(error, res, 'Failed to delete user')
   }
 }

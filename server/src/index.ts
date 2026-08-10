@@ -24,8 +24,8 @@ const wsServer = new WebSocketServer({ server })
 try {
   await prisma.$connect()
   console.log('PostgreSQL database connection established via Prisma.')
-} catch (err) {
-  console.error('Database connection error:', err)
+} catch (error) {
+  console.error('Database connection error:', error)
   process.exit(1)
 }
 
@@ -61,8 +61,8 @@ wsServer.on('connection', (ws) => {
             break
         }
       })
-    } catch (err) {
-      console.error('Invalid JSON message received via WebSocket:', err)
+    } catch (error) {
+      console.error('Invalid JSON message received via WebSocket:', error)
     }
   })
 })

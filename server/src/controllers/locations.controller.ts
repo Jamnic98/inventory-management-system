@@ -1,127 +1,269 @@
 import { Request, Response } from 'express'
+import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
+import { getCurrentUserId, parseId } from '../utils/index.js'
+import { handlePrismaError } from '../middleware/index.js'
 
-// GET /locations - Retrieve all locations (with parent & child relations)
-export const getLocations = async (_req: Request, res: Response): Promise<void> => {
+// GET /api/v1/locations - Retrieve locations (shared + personal)
+export const getLocations = async (req: Request, res: Response): Promise<void> => {
   try {
+    const currentUserId = getCurrentUserId(req)
+    const { search } = req.query
+
+    const whereClause: Prisma.LocationWhereInput = {
+      OR: [
+        { userId: null }, // Shared household locations
+        ...(currentUserId ? [{ userId: currentUserId }] : []),
+      ],
+    }
+
+    if (search && typeof search === 'string') {
+      const searchStr = search.trim()
+      if (searchStr) {
+        whereClause.label = {
+          contains: searchStr,
+          mode: 'insensitive',
+        }
+      }
+    }
+
     const locations = await prisma.location.findMany({
+      where: whereClause,
       include: {
         parent: true,
         children: true,
-        items: true,
+        _count: {
+          select: { items: { where: { deletedAt: null } } },
+        },
       },
       orderBy: {
         label: 'asc',
       },
     })
+
     res.status(200).json(locations)
-  } catch (err) {
-    console.error('Error fetching locations:', err)
-    res.status(500).json({ error: 'Failed to retrieve locations' })
+  } catch (error: unknown) {
+    console.error('Error fetching locations:', error)
+    handlePrismaError(error, res, 'Failed to retrieve locations')
   }
 }
 
-// POST /locations - Create a new location
-export const addLocation = async (req: Request, res: Response): Promise<void> => {
+// GET /api/v1/locations/:id - Retrieve a single location by ID
+export const getLocationById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { label, type, parentId } = req.body
-
-    if (!label || typeof label !== 'string' || label.trim() === '') {
-      res.status(400).json({ error: 'Label is required and must be a non-empty string' })
+    const currentUserId = getCurrentUserId(req)
+    const locationId = parseId(req.params.id)
+    if (isNaN(locationId)) {
+      res.status(400).json({ error: 'Invalid ID format' })
       return
     }
-
-    const newLocation = await prisma.location.create({
-      data: {
-        label: label.trim(),
-        type: type || 'LOCATION',
-        parentId: parentId ? Number(parentId) : null,
-      },
-      include: {
-        parent: true,
-        children: true,
-      },
-    })
-
-    res.status(201).json(newLocation)
-  } catch (err: any) {
-    // Print full error object in your backend terminal console for debugging
-    console.error('DEBUG - Full error on addLocation:', err)
-
-    // P2002: Unique constraint failed (e.g. label already exists)
-    if (err.code === 'P2002') {
-      res.status(409).json({
-        error: 'Duplicate Location',
-        message: `A location with the label "${req.body.label}" already exists.`,
-      })
-      return
-    }
-
-    // P2003: Foreign key constraint failure (invalid parentId)
-    if (err.code === 'P2003') {
-      res.status(400).json({
-        error: 'Invalid Parent ID',
-        message: 'The specified parent location does not exist in the database.',
-      })
-      return
-    }
-
-    // P2006 / P2009: Invalid value provided (e.g. type enum mismatch)
-    if (err.code === 'P2006' || err.code === 'P2009') {
-      res.status(400).json({
-        error: 'Invalid Field Value',
-        message: err.message || 'One of the provided fields has an invalid type or enum value.',
-      })
-      return
-    }
-
-    // Fallback: Return actual Prisma message during development
-    res.status(500).json({
-      error: 'Failed to create location',
-      code: err.code || 'UNKNOWN',
-      details: err.message,
-    })
-  }
-}
-
-// DELETE /locations/:id - Delete a location by ID
-export const deleteLocationById = async (
-  req: Request<{ id: string }>,
-  res: Response
-): Promise<void> => {
-  try {
-    const { id } = req.params
-    const locationId = parseInt(id, 10)
 
     if (isNaN(locationId)) {
       res.status(400).json({ error: 'Invalid ID format' })
       return
     }
 
-    await prisma.location.delete({
-      where: { id: locationId },
+    const location = await prisma.location.findFirst({
+      where: {
+        id: locationId,
+        OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
+      },
+      include: {
+        parent: true,
+        children: true,
+        items: {
+          where: { deletedAt: null },
+        },
+      },
     })
 
-    res.status(204).send()
-  } catch (err: any) {
-    console.error('Error deleting location:', err)
-
-    // P2025: Record to delete does not exist
-    if (err.code === 'P2025') {
+    if (!location) {
       res.status(404).json({ error: 'Location not found' })
       return
     }
 
-    // P2003: Foreign key constraint failure (Location has dependent sub-locations or items)
-    if (err.code === 'P2003') {
-      res.status(409).json({
-        error:
-          'Cannot delete location that contains items or sub-locations. Reassign or remove them first.',
+    res.status(200).json(location)
+  } catch (error: unknown) {
+    console.error('Error fetching location by ID:', error)
+    handlePrismaError(error, res, 'Failed to retrieve location')
+  }
+}
+
+// POST /api/v1/locations - Create a new location
+export const addLocation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const currentUserId = getCurrentUserId(req)
+    const { label, type, parentId, isPersonal } = req.body
+
+    // Validate label presence and prevent whitespace-only strings
+    if (!label || typeof label !== 'string' || label.trim().length === 0) {
+      res.status(400).json({ error: 'Label is required and cannot be blank' })
+      return
+    }
+
+    const trimmedLabel = label.trim()
+
+    // Safely parse parentId if provided
+    let parsedParentId: number | null = null
+    if (parentId !== undefined && parentId !== null) {
+      parsedParentId = parseId(parentId)
+      if (isNaN(parsedParentId)) {
+        res.status(400).json({ error: 'Invalid parent ID format' })
+        return
+      }
+    }
+
+    // Atomically create location and default subscription in a transaction
+    const newLocation = await prisma.$transaction(async (tx) => {
+      const location = await tx.location.create({
+        data: {
+          label: trimmedLabel,
+          type: type || 'LOCATION',
+          parentId: parsedParentId,
+          userId: isPersonal && currentUserId ? currentUserId : null,
+        },
+      })
+
+      // Automatically subscribe creator if user exists
+      if (currentUserId) {
+        const userSettings = await tx.userSettings.findUnique({
+          where: { userId: currentUserId },
+        })
+
+        const shouldAutoSubscribe = userSettings?.autoSubscribeNewLocations ?? true
+
+        if (shouldAutoSubscribe) {
+          await tx.locationSubscription.create({
+            data: {
+              userId: currentUserId,
+              locationId: location.id,
+              notifyExpiring: userSettings?.defaultNotifyExpiring ?? true,
+              notifyLowStock: userSettings?.defaultNotifyLowStock ?? true,
+            },
+          })
+        }
+      }
+
+      return location
+    })
+
+    res.status(201).json(newLocation)
+  } catch (error: unknown) {
+    console.error('Error creating location:', error)
+    handlePrismaError(error, res, 'Failed to create location')
+  }
+}
+
+// PATCH /api/v1/locations/:id - Update an existing location
+export const updateLocation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const currentUserId = getCurrentUserId(req)
+    const locationId = parseId(req.params.id)
+    if (isNaN(locationId)) {
+      res.status(400).json({ error: 'Invalid ID format' })
+      return
+    }
+
+    // Verify ownership access before updating
+    const existing = await prisma.location.findFirst({
+      where: {
+        id: locationId,
+        OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
+      },
+    })
+
+    if (!existing) {
+      res.status(404).json({ error: 'Location not found' })
+      return
+    }
+
+    const { label, type, parentId, isPersonal } = req.body
+
+    // Prevent a location from becoming its own parent
+    if (parentId && Number(parentId) === locationId) {
+      res.status(400).json({ error: 'A location cannot be its own parent' })
+      return
+    }
+
+    const updateData: Prisma.LocationUpdateInput = {}
+
+    if (label !== undefined) updateData.label = String(label).trim()
+    if (type !== undefined) updateData.type = String(type)
+    if (parentId !== undefined) {
+      updateData.parent = parentId ? { connect: { id: Number(parentId) } } : { disconnect: true }
+    }
+    if (isPersonal !== undefined) {
+      updateData.user =
+        isPersonal && currentUserId ? { connect: { id: currentUserId } } : { disconnect: true }
+    }
+
+    const updatedLocation = await prisma.location.update({
+      where: { id: locationId },
+      data: updateData,
+      include: {
+        parent: true,
+        children: true,
+      },
+    })
+
+    res.status(200).json(updatedLocation)
+  } catch (error: unknown) {
+    console.error('Error updating location:', error)
+    handlePrismaError(error, res, 'Failed to update location')
+  }
+}
+
+// DELETE /api/v1/locations/:id
+export const deleteLocationById = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const id = parseId(req.params.id)
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid ID format' })
+      return
+    }
+
+    const currentUserId = req.user?.id
+
+    // Fetch the target location to verify existence and ownership
+    const location = await prisma.location.findUnique({
+      where: { id },
+    })
+
+    if (!location) {
+      res.status(404).json({ error: 'Location not found' })
+      return
+    }
+
+    // Ownership check: If location is personal (has a userId),
+    // ensure it belongs to the authenticated user
+    if (location.userId !== null && location.userId !== currentUserId) {
+      res.status(404).json({ error: 'Location not found' })
+      return
+    }
+
+    // Child reference check: Prevent deleting location if child locations reference it
+    const childCount = await prisma.location.count({
+      where: { parentId: id },
+    })
+
+    if (childCount > 0) {
+      res.status(400).json({
+        error: 'Cannot delete location that contains child locations',
       })
       return
     }
 
-    res.status(400).json({ error: 'Failed to delete location' })
+    // Perform deletion
+    await prisma.location.delete({
+      where: { id },
+    })
+
+    res.status(204).send()
+  } catch (error: unknown) {
+    handlePrismaError(error, res, 'Failed to delete location')
   }
 }
