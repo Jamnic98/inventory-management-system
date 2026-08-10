@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
-import { handlePrismaError } from '../middleware/index.js'
+import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { parseId } from '../utils/index.js'
 
 // Helper to generate a 32-character magic token

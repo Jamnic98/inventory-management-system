@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 
 import prisma from '../db.js'
-import { handlePrismaError } from '../middleware/index.js'
+import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { getCurrentUserId, parseId } from '../utils/index.js'
 
 // GET /api/v1/locations/:locationId/subscription

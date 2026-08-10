@@ -3,7 +3,7 @@ import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
 import { itemEvents } from '../events/index.js'
-import { handlePrismaError } from '../middleware/index.js'
+import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { enrichItem, getCurrentUserId, parseId } from '../utils/index.js'
 
 /**

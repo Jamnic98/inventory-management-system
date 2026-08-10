@@ -2,8 +2,8 @@ import { Request, Response } from 'express'
 import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
+import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { getCurrentUserId, parseId } from '../utils/index.js'
-import { handlePrismaError } from '../middleware/index.js'
 
 // GET /api/v1/locations - Retrieve locations (shared + personal)
 export const getLocations = async (req: Request, res: Response): Promise<void> => {
