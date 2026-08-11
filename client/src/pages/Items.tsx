@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 
-import { AddItemsModal, ItemFilterBar, ItemsTable } from '../components'
+import { ItemFormModal, ItemFilterBar, ItemsTable } from '../components'
 import { getItems, updateItemQuantity, getLocations } from '../api'
 import type { Location, Item, ItemFilters } from '../types'
 
@@ -217,7 +217,7 @@ export default function Items() {
       {/* TODO: move */}
       {/* ADD ITEM MODAL / DRAWER PLACEHOLDER */}
       {isAddOpen && (
-        <AddItemsModal
+        <ItemFormModal
           isOpen={isAddOpen}
           locations={locations}
           onClose={() => setIsAddOpen(false)}

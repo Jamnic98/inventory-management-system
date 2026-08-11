@@ -27,6 +27,7 @@ yarn-error.log*
 
 babel.config.json
 /src/generated/prisma
+prisma/seed.ts
 
 # AI Coding Assistant Caches & Configs
 .agents/

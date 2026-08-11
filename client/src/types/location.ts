@@ -26,3 +26,8 @@ export interface LocationSubscription {
   userId: number
   thresholdAlerts?: boolean
 }
+
+export interface LocationTreeNode extends Location {
+  children: LocationTreeNode[]
+  itemCount: number
+}

@@ -1,3 +1,4 @@
+process.env.JWT_SECRET = 'test-secret-key-123'
 import supertest from 'supertest'
 
 import app from '../../server.js'
@@ -29,20 +30,22 @@ describe('GET /api/v1/auth/login', () => {
     // Create test user atomically
     await prisma.user.upsert({
       where: { email: 'test@example.com' },
-      update: { loginToken: validToken },
+      update: {
+        loginToken: validToken,
+        tokenExpiry: new Date(Date.now() + 1000 * 60 * 60), // 1 hour in future
+      },
       create: {
         email: 'test@example.com',
         name: 'Test User',
         loginToken: validToken,
+        tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
       },
     })
 
     const response = await request.get(`/api/v1/auth/login?token=${validToken}`).expect(200)
 
-    expect(response.body.message).toBe('Login successful')
-
-    const cookies = response.headers['set-cookie']
-    expect(cookies).toBeDefined()
-    expect(cookies[0]).toContain('user_session=')
+    expect(response.body.token).toBeDefined()
+    expect(response.body.user).toBeDefined()
+    expect(response.body.user.email).toBe('test@example.com')
   })
 })

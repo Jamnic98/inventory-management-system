@@ -1,9 +1,11 @@
 import { Request, Response } from 'express'
 import crypto from 'node:crypto'
+import jwt from 'jsonwebtoken'
 
 import prisma from '../db.js'
 import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { parseId } from '../utils/index.js'
+import { sendMagicLinkEmail } from '../mailer.js'
 
 // GET /api/v1/auth/login?token=...
 export const loginWithToken = async (
@@ -13,50 +15,47 @@ export const loginWithToken = async (
   try {
     const { token } = req.query
 
-    if (!token) {
-      res.status(400).json({ error: 'Token is required' })
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ error: 'Invalid or missing token' })
       return
     }
 
-    // Find user by magic link token or token table
     const user = await prisma.user.findFirst({
-      where: {
-        loginToken: token,
-        // Check expiration if your schema tracks it:
-        // tokenExpiresAt: { gte: new Date() }
-      },
+      where: { loginToken: token, tokenExpiry: { gte: new Date() } },
     })
 
     if (!user) {
-      res.status(401).json({ error: 'Invalid or expired login token' })
+      res.status(401).json({ error: 'Magic link is invalid or expired.' })
       return
     }
 
-    // Clear/consume the token if single-use
+    // Invalidate token after use
     await prisma.user.update({
       where: { id: user.id },
       data: { loginToken: null },
     })
 
-    // Set HTTP-only session cookie
-    res.cookie('user_session', user.id.toString(), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ FATAL ERROR: JWT_SECRET is missing from environment variables!')
+      process.exit(1)
+    }
+
+    // Generate a long-lived Session JWT (e.g., 7 days)
+    const sessionToken = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: '1y',
     })
 
-    res.status(200).json({
-      message: 'Login successful',
+    res.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
       },
+      token: sessionToken,
     })
   } catch (error) {
     console.error('Error during token login:', error)
-    res.status(500).json({ error: 'Failed to authenticate token' })
+    res.status(500).json({ error: 'Error during token login' })
   }
 }
 
@@ -74,20 +73,25 @@ export const generateMagicLink = async (
 
     // Generate random 32-byte token
     const token = crypto.randomBytes(32).toString('hex')
+    const expiry = new Date(Date.now() + 15 * 60 * 1000) // 15 mins expiry
 
+    // Save token to user in database
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { loginToken: token },
+      data: { loginToken: token, tokenExpiry: expiry },
     })
 
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000'
-    const magicLink = `${baseUrl}/api/v1/auth/login?token=${token}`
+    // Construct Magic Link
+    const clientBaseUrl = process.env.CLIENT_BASE_URL || 'http://localhost:5173'
+    const magicLink = `${clientBaseUrl}/login/verify?token=${token}`
 
+    // Send email via Nodemailer
+    await sendMagicLinkEmail(user.email, magicLink)
+
+    // Send response (avoid leaking the raw token in production responses if email is working)
     res.status(200).json({
-      message: 'Magic link generated successfully',
+      message: `Magic link sent successfully to ${user.email}`,
       userId: user.id,
-      token,
-      magicLink,
     })
   } catch (error: unknown) {
     console.error('Error generating magic link:', error)
@@ -97,16 +101,35 @@ export const generateMagicLink = async (
 
 // GET /api/v1/auth/me - Verify current cookie session
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
-  if (!req.user) {
-    res.status(401).json({ error: 'Not authenticated' })
-    return
-  }
+  try {
+    // Get userId from token payload attached by auth middleware
+    const userId = req.user?.id
 
-  res.status(200).json({
-    id: req.user.id,
-    name: req.user.name,
-    email: req.user.email,
-  })
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' })
+      return
+    }
+
+    // Fetch fresh user record directly from DB
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    })
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' })
+      return
+    }
+
+    // Return full user object
+    res.json({ user })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch user' })
+  }
 }
 
 // POST /api/v1/auth/logout - Clear session

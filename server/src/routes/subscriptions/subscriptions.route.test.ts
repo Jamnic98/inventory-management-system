@@ -1,4 +1,7 @@
+process.env.JWT_SECRET = 'test-secret-key-123'
+
 import supertest from 'supertest'
+import { Location } from '../../generated/prisma/client.js'
 
 import prisma from '../../db.js'
 import app from '../../../src/server.js'

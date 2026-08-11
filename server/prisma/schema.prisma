@@ -14,7 +14,8 @@ model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   name       String
-  loginToken String?  @unique @map("login_token") // The 1-click token
+  loginToken String?   @unique @map("login_token") // Maps to login_token column in SQL
+  tokenExpiry DateTime? @map("token_expiry")
 
   // Relations
   locations             Location[]             // Personal locations owned by this user

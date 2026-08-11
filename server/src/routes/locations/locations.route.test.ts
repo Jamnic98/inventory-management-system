@@ -1,4 +1,5 @@
 import supertest from 'supertest'
+import { Location } from '../../generated/prisma/client.js'
 
 import app from '../../server.js'
 import prisma from '../../db.js'
@@ -104,14 +105,14 @@ describe('Test the locations endpoint', () => {
       // Excludes: User 2 Safe Box
       expect(response.body).toHaveLength(3)
 
-      const labels = response.body.map((l: any) => l.label)
+      const labels = response.body.map((l: Location) => l.label)
       expect(labels).toContain('Kitchen Main Cupboard')
       expect(labels).toContain('Top Shelf')
       expect(labels).toContain('My Bedroom Drawer')
       expect(labels).not.toContain('User 2 Safe Box')
 
       // Validate relationship structures and counts
-      const kitchen = response.body.find((l: any) => l.id === sharedLocationId)
+      const kitchen = response.body.find((l: Location) => l.id === sharedLocationId)
       expect(kitchen).toBeDefined()
       expect(kitchen.children).toHaveLength(1)
       expect(kitchen.children[0].id).toBe(childLocationId)

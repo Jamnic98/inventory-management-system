@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
 
 import prisma from '../db.js'
 
@@ -8,24 +9,41 @@ export const requireAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // 1. Check x-user-id header first (ideal for tests / internal API calls)
-    const headerUserId = req.headers['x-user-id']
-    // 2. Fall back to user_session cookie
-    const cookieUserId = req.cookies?.user_session
+    let userId: number | null = null
 
-    const rawUserId = headerUserId || cookieUserId
+    // Check Bearer Token in Authorization Header (Primary Method for Frontend SPA)
+    const authHeader = req.headers.authorization
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1]
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-fallback-secret-key') as {
+          id: number
+        }
+        userId = decoded.id
+      } catch (jwtErr) {
+        res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' })
+        return
+      }
+    }
 
-    if (!rawUserId) {
+    // Fallbacks for test suites or legacy cookies
+    if (!userId) {
+      const headerUserId = req.headers['x-user-id']
+      const cookieUserId = req.cookies?.user_session
+      const rawUserId = headerUserId || cookieUserId
+
+      if (rawUserId) {
+        userId = Number(rawUserId)
+      }
+    }
+
+    // 3. No identifier found in headers, cookies, or JWT
+    if (!userId || isNaN(userId)) {
       res.status(401).json({ error: 'Authentication required. No active session.' })
       return
     }
 
-    const userId = Number(rawUserId)
-    if (isNaN(userId)) {
-      res.status(401).json({ error: 'Invalid session or user identifier' })
-      return
-    }
-
+    // Look up user in PostgreSQL via Prisma
     const user = await prisma.user.findUnique({
       where: { id: userId },
     })
@@ -38,6 +56,7 @@ export const requireAuth = async (
       return
     }
 
+    // Attach full user object to Request
     req.user = user
     next()
   } catch (error) {

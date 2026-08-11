@@ -12,6 +12,9 @@
     "test:watch": "vitest --no-file-parallelism",
     "format": "prettier --write src/**/*.{js,jsx,ts,tsx,json,css,scss,md}"
   },
+  "prisma": {
+    "seed": "node dist/prisma/seed.js"
+  },
   "keywords": [],
   "author": "Jamie Stimpson",
   "license": "ISC",
@@ -22,6 +25,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.5",
     "pg": "^8.23.0",
     "ws": "^8.21.3"
@@ -30,6 +34,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.2.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.21.0",

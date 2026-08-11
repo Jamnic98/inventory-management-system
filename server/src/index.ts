@@ -3,8 +3,9 @@ import { WebSocketServer, WebSocket } from 'ws'
 import dotenv from 'dotenv'
 
 import app from './server.js'
-import sendMessage from './emailer.js'
 import prisma from './db.js'
+import { sendNotificationEmail } from './mailer.js'
+import seedDatabase from './utils/database.js'
 
 dotenv.config()
 
@@ -24,6 +25,8 @@ const wsServer = new WebSocketServer({ server })
 try {
   await prisma.$connect()
   console.log('PostgreSQL database connection established via Prisma.')
+
+  await seedDatabase()
 } catch (error) {
   console.error('Database connection error:', error)
   process.exit(1)
@@ -55,7 +58,7 @@ wsServer.on('connection', (ws) => {
             break
           case 'email':
             const { subject, content, recipients } = messageObj
-            sendMessage(subject, content, recipients)
+            sendNotificationEmail(subject, content, recipients)
             break
           default:
             break

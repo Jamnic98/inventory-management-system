@@ -1,6 +1,8 @@
-const BASE_URL = '/api/v1'
+import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 
-// Error Type & Factory
+import { BASE_URL, TOKEN_KEY } from '../utils/constants'
+
+// Error Type & Factory (Preserved for full app compatibility)
 export interface APIError extends Error {
   readonly status: number
   readonly data?: unknown
@@ -23,58 +25,43 @@ export const isAPIError = (error: unknown): error is APIError => {
   )
 }
 
-// Safe Body Parsing
-const parseResponseBody = async (response: Response): Promise<unknown> => {
-  const contentType = response.headers.get('content-type')
-  if (contentType?.includes('application/json')) {
-    try {
-      return await response.json()
-    } catch {
-      return null
+// Instantiate Axios Instance
+const axiosInstance = axios.create({
+  baseURL: BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Request Interceptor: Automatically attach Bearer token from localStorage
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Response Interceptor: Normalize errors into custom APIError
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    // Handle Network or Abort Errors
+    if (!error.response) {
+      if (axios.isCancel(error)) {
+        throw error
+      }
+      throw createAPIError(0, 'Network error. Please check your internet connection.', error)
     }
-  }
-  try {
-    const text = await response.text()
-    return text || null
-  } catch {
-    return null
-  }
-}
 
-// Core Request Function
-const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+    const status = error.response.status
+    const responseBody = error.response.data
 
-  // Safely merge headers using native Headers constructor to prevent TS type conflicts
-  const headers = new Headers(options.headers)
-  if (!isFormData && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  const config: RequestInit = {
-    ...options,
-    headers,
-    credentials: 'include',
-  }
-
-  let response: Response
-
-  try {
-    response = await fetch(`${BASE_URL}${endpoint}`, config)
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw error
-    }
-    throw createAPIError(0, 'Network error. Please check your internet connection.', error)
-  }
-
-  const responseBody = await parseResponseBody(response)
-
-  // Handle Error Statuses
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}: ${response.statusText || 'An error occurred'}`
+    let errorMessage = `HTTP ${status}: ${error.response.statusText || 'An error occurred'}`
     let errorData: unknown = responseBody
 
+    // Parse Error Messages (Matches your previous logic)
     if (responseBody && typeof responseBody === 'object') {
       const obj = responseBody as Record<string, unknown>
       const messageCandidate = obj.error ?? obj.message
@@ -86,45 +73,41 @@ const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<
       errorMessage = responseBody
     }
 
-    throw createAPIError(response.status, errorMessage, errorData)
-  }
+    // Auto-clear invalid token on 401 Unauthorized
+    if (status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+    }
 
-  // Handle Empty Responses
-  if (response.status === 204 || responseBody === null) {
-    return {} as T
+    throw createAPIError(status, errorMessage, errorData)
   }
-
-  return responseBody as T
-}
+)
 
 // API Client Object
 export const apiClient = {
-  get: <T>(endpoint: string, options?: RequestInit) =>
-    request<T>(endpoint, { ...options, method: 'GET' }),
+  get: async <T>(endpoint: string, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await axiosInstance.get<T>(endpoint, config)
+    return response.data
+  },
 
-  post: <T>(endpoint: string, body?: unknown, options?: RequestInit) =>
-    request<T>(endpoint, {
-      ...options,
-      method: 'POST',
-      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    }),
+  post: async <T>(endpoint: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await axiosInstance.post<T>(endpoint, body, config)
+    return response.data
+  },
 
-  put: <T>(endpoint: string, body?: unknown, options?: RequestInit) =>
-    request<T>(endpoint, {
-      ...options,
-      method: 'PUT',
-      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    }),
+  put: async <T>(endpoint: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await axiosInstance.put<T>(endpoint, body, config)
+    return response.data
+  },
 
-  patch: <T>(endpoint: string, body?: unknown, options?: RequestInit) =>
-    request<T>(endpoint, {
-      ...options,
-      method: 'PATCH',
-      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    }),
+  patch: async <T>(endpoint: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await axiosInstance.patch<T>(endpoint, body, config)
+    return response.data
+  },
 
-  delete: <T>(endpoint: string, options?: RequestInit) =>
-    request<T>(endpoint, { ...options, method: 'DELETE' }),
+  delete: async <T>(endpoint: string, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await axiosInstance.delete<T>(endpoint, config)
+    return response.data
+  },
 }
 
 export default apiClient

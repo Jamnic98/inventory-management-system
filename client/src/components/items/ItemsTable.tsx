@@ -1,4 +1,4 @@
-import { type Item } from '../types'
+import { type Item } from '../../types'
 
 interface ItemsTableProps {
   items: Item[]
@@ -72,11 +72,11 @@ export default function ItemsTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 border-b text-gray-700">
           <tr>
-            <th className="p-2.5">Item</th>
-            <th className="p-2.5 hidden sm:table-cell">Location</th>
-            <th className="p-2.5 text-center">Qty</th>
-            <th className="p-2.5">Status</th>
-            <th className="p-2.5 text-right">Actions</th>
+            <th className="p-2">Item</th>
+            <th className="p-2 hidden sm:table-cell">Location</th>
+            <th className="p-2 text-center">Qty</th>
+            <th className="p-2">Status</th>
+            <th className="p-2 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -96,7 +96,7 @@ export default function ItemsTable({
                 className={`hover:bg-gray-50/80 transition-colors ${isArchived ? 'opacity-75 bg-gray-50/50' : ''}`}
               >
                 {/* Item Label & Mobile Subtitle */}
-                <td className="p-2.5 font-medium text-gray-900">
+                <td className="p-2 font-medium text-gray-900">
                   <div className="flex items-center gap-1.5">
                     <span>{item.label || 'Unnamed Item'}</span>
                     {item.userId !== null && item.userId !== undefined && (
@@ -117,14 +117,14 @@ export default function ItemsTable({
                 </td>
 
                 {/* Location (Tablet/Desktop) */}
-                <td className="p-2.5 hidden sm:table-cell text-gray-600">
+                <td className="p-2 hidden sm:table-cell text-gray-600">
                   {item.locationId
                     ? locationsMap[item.locationId] || `Loc #${item.locationId}`
                     : '-'}
                 </td>
 
                 {/* Inline Quantity Controls */}
-                <td className="p-2.5">
+                <td className="p-2">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       type="button"
@@ -155,16 +155,16 @@ export default function ItemsTable({
                 </td>
 
                 {/* Dynamic Status Badge */}
-                <td className="p-2.5">
+                <td className="p-2">
                   <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${status.color}`}
+                    className={`inline-block px-2 py-0.5 rounded font-semibold ${status.color} text-xs`}
                   >
                     {status.label}
                   </span>
                 </td>
 
                 {/* Actions / Details */}
-                <td className="p-2.5 text-right space-x-2">
+                <td className="p-2 text-right space-x-2">
                   {isArchived && onRestore ? (
                     <button
                       type="button"
