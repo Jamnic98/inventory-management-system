@@ -1,34 +1,66 @@
-// Full Item model as returned by backend API (enriched with computed fields)
+import { Location } from './location'
+import { User } from './user'
+
+// -----------------------------------------------------------------------------
+// Stock / Inventory Batch Model
+// -----------------------------------------------------------------------------
+export interface ItemStock {
+  id: number
+  itemId: number
+  locationId?: number | null
+  quantity: number
+  expirationDate?: string | Date | null
+  openedOn?: string | Date | null
+  deletedAt?: string | Date | null
+  createdAt?: string | Date | null
+  updatedAt?: string | Date | null
+
+  // Optional relations
+  location?: Partial<Location> | null
+}
+
+// -----------------------------------------------------------------------------
+// Full Master Catalog Item model (enriched with computed fields)
+// -----------------------------------------------------------------------------
 export interface Item {
   id: number
   label: string
-  quantity: number
   barcode?: string | null
-  expirationDate?: string | Date | null
-  openedOn?: string | Date | null
   useWithinDays?: number | null
   lowStockThreshold?: number | null
-  locationId?: number | null
   userId?: number | null // null = shared, number = personal item
-  // TODO: set specific types
+
   deletedAt?: string | Date | null // null = active, timestamp = archived
   createdAt?: string | Date | null
   updatedAt?: string | Date | null
 
-  // Computed helper properties from backend
+  // Nested Inventory Batches
+  stocks: ItemStock[]
+
+  // Aggregated & computed helper properties from backend
+  quantity: number // Total sum across all active batches
   isLowStock?: boolean
   isOpenedExpired?: boolean
+  isExpired?: boolean
+
+  // Primary batch fallbacks (for backwards compatibility with single-location components)
+  locationId?: number | null
+  location?: Partial<Location> | null
+  expirationDate?: string | Date | null
+  openedOn?: string | Date | null
 
   // Optional relations
-  // TODO: use actual types?
-  location?: { id: number; name: string } | null
-  user?: { id: number; name: string } | null
+  user?: Partial<User> | null
 }
 
-// Payload for creating new items
+// -----------------------------------------------------------------------------
+// Payload Types
+// -----------------------------------------------------------------------------
+
+// Payload for creating new catalog items and initial stock batch
 export interface AddItemData {
   label: string
-  quantity: number
+  quantity?: number
   barcode?: string | null
   expirationDate?: string | Date | null
   openedOn?: string | Date | null
@@ -38,10 +70,22 @@ export interface AddItemData {
   userId?: number | null
 }
 
-// Payload for updating existing items
-export type UpdateItemData = Partial<AddItemData>
+// Payload for updating existing items / primary stock batch
+export interface UpdateItemData extends Partial<AddItemData> {
+  stockId?: number // Optional: target a specific stock batch during update
+}
 
-// Filter & Sort State for UI Filtering
+// Payload for adding a new standalone batch to an existing catalog item
+export interface AddStockBatchData {
+  quantity: number
+  locationId?: number | null
+  expirationDate?: string | Date | null
+  openedOn?: string | Date | null
+}
+
+// -----------------------------------------------------------------------------
+// UI Filter & Sort State
+// -----------------------------------------------------------------------------
 export interface ItemFilters {
   search: string
   locationId: number | null

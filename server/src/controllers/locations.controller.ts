@@ -34,7 +34,7 @@ export const getLocations = async (req: Request, res: Response): Promise<void> =
         parent: true,
         children: true,
         _count: {
-          select: { items: { where: { deletedAt: null } } },
+          select: { stocks: { where: { deletedAt: null } } },
         },
       },
       orderBy: {
@@ -62,13 +62,15 @@ export const getLocationById = async (req: Request, res: Response): Promise<void
     const location = await prisma.location.findFirst({
       where: {
         id: locationId,
-        OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
+        OR: [{ userId: null }, ...(currentUserId !== null ? [{ userId: currentUserId }] : [])],
       },
       include: {
         parent: true,
         children: true,
-        items: {
-          where: { deletedAt: null },
+        stocks: {
+          include: {
+            item: true,
+          },
         },
       },
     })
@@ -78,7 +80,11 @@ export const getLocationById = async (req: Request, res: Response): Promise<void
       return
     }
 
-    res.status(200).json(location)
+    // Attach `items` property (aliasing `stocks`) to satisfy API contract
+    res.status(200).json({
+      ...location,
+      items: location.stocks || [],
+    })
   } catch (error: unknown) {
     console.error('Error fetching location by ID:', error)
     handlePrismaError(error, res, 'Failed to retrieve location')
@@ -214,14 +220,18 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
 export const deleteLocationById = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseId(req.params.id)
+    const currentUserId = getCurrentUserId(req)
+
     if (isNaN(id)) {
       res.status(400).json({ error: 'Invalid ID format' })
       return
     }
 
-    const currentUserId = getCurrentUserId(req)
+    if (currentUserId === null) {
+      res.status(401).json({ error: 'Unauthorized' })
+      return
+    }
 
-    // Fetch the target location to verify existence and ownership
     const location = await prisma.location.findUnique({
       where: { id },
     })
@@ -231,17 +241,15 @@ export const deleteLocationById = async (req: Request, res: Response): Promise<v
       return
     }
 
-    // Ownership check: If location is personal (has a userId),
-    // ensure it belongs to the authenticated user
     if (location.userId !== null && location.userId !== currentUserId) {
       res.status(404).json({ error: 'Location not found' })
       return
     }
 
-    // Check for child locations or assigned active items
-    const [childCount, itemCount] = await Promise.all([
+    // Check for child locations or assigned stocks
+    const [childCount, stockCount] = await Promise.all([
       prisma.location.count({ where: { parentId: id } }),
-      prisma.item.count({ where: { locationId: id, deletedAt: null } }),
+      prisma.itemStock.count({ where: { locationId: id } }),
     ])
 
     if (childCount > 0) {
@@ -251,14 +259,13 @@ export const deleteLocationById = async (req: Request, res: Response): Promise<v
       return
     }
 
-    if (itemCount > 0) {
+    if (stockCount > 0) {
       res.status(400).json({
         error: 'Cannot delete location that currently contains active items',
       })
       return
     }
 
-    // Perform deletion
     await prisma.location.delete({
       where: { id },
     })

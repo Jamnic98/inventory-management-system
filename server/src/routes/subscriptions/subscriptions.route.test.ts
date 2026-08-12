@@ -46,7 +46,6 @@ describe('Test the global subscriptions router', () => {
     const location1 = await prisma.location.create({
       data: {
         label: 'Main Refrigerator',
-        type: 'STORAGE',
       },
     })
     loc1Id = location1.id
@@ -54,7 +53,6 @@ describe('Test the global subscriptions router', () => {
     const location2 = await prisma.location.create({
       data: {
         label: 'Pantry Shelf A',
-        type: 'SHELF',
       },
     })
     loc2Id = location2.id
@@ -102,7 +100,6 @@ describe('Test the global subscriptions router', () => {
       expect(sub1.notifyExpiring).toBe(true)
       expect(sub1.notifyLowStock).toBe(true)
       expect(sub1.location).toHaveProperty('label', 'Main Refrigerator')
-      expect(sub1.location).toHaveProperty('type', 'STORAGE')
 
       const sub2 = response.body.find((s: any) => s.locationId === loc2Id)
       expect(sub2).toBeDefined()

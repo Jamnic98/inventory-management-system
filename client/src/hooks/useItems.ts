@@ -2,15 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   addItem,
+  addStockBatch,
   deleteItemById,
+  deleteStockBatch,
   getArchivedItems,
   getItemByBarcode,
   getItemById,
   getItems,
   restoreItemById,
   updateItemQuantity,
+  updateStockBatch,
 } from '../api/items'
-import type { AddItemData, Item } from '../types'
+import type { AddItemData, AddStockBatchData, Item, ItemStock } from '../types'
 
 // Central Query Keys
 export const itemKeys = {
@@ -68,11 +71,11 @@ export const useItemByBarcode = (barcode?: string) => {
 }
 
 // ---------------------------------------------------------------------------
-// Mutations
+// Item Catalog Mutations
 // ---------------------------------------------------------------------------
 
 /**
- * Add a new item
+ * Add a new item catalog entry + initial stock batch
  */
 export const useCreateItem = () => {
   const queryClient = useQueryClient()
@@ -86,7 +89,7 @@ export const useCreateItem = () => {
 }
 
 /**
- * Update item quantity (with Optimistic UI updates)
+ * Update item quantity (with Optimistic UI updates across primary batch & aggregated quantity)
  */
 export const useUpdateItemQuantity = () => {
   const queryClient = useQueryClient()
@@ -95,7 +98,7 @@ export const useUpdateItemQuantity = () => {
     mutationFn: ({ id, quantity }: { id: number | string; quantity: number }) =>
       updateItemQuantity(id, quantity),
 
-    // Optimistic Update: Immediately reflect quantity changes in UI before server ACK
+    // Optimistic Update: Reflect top-level quantity and primary batch changes immediately
     onMutate: async ({ id, quantity }) => {
       await queryClient.cancelQueries({ queryKey: itemKeys.lists() })
 
@@ -104,9 +107,21 @@ export const useUpdateItemQuantity = () => {
       if (previousItems) {
         queryClient.setQueryData<Item[]>(
           itemKeys.lists(),
-          previousItems.map((item) =>
-            String(item.id) === String(id) ? { ...item, quantity } : item
-          )
+          previousItems.map((item) => {
+            if (String(item.id) !== String(id)) return item
+
+            // Update primary stock batch in optimistic cache if present
+            const updatedStocks = [...(item.stocks || [])]
+            if (updatedStocks.length > 0) {
+              updatedStocks[0] = { ...updatedStocks[0], quantity }
+            }
+
+            return {
+              ...item,
+              quantity, // Aggregated total quantity
+              stocks: updatedStocks,
+            }
+          })
         )
       }
 
@@ -128,7 +143,7 @@ export const useUpdateItemQuantity = () => {
 }
 
 /**
- * Delete an item
+ * Delete an item (Soft-delete catalog item and all associated stock batches)
  */
 export const useDeleteItem = () => {
   const queryClient = useQueryClient()
@@ -149,6 +164,54 @@ export const useRestoreItem = () => {
 
   return useMutation({
     mutationFn: (id: number | string) => restoreItemById(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itemKeys.all })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Granular Stock Batch Mutations (New)
+// ---------------------------------------------------------------------------
+
+/**
+ * Add a new standalone stock batch to an existing item (e.g., bought another box)
+ */
+export const useAddStockBatch = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ itemId, batch }: { itemId: number | string; batch: AddStockBatchData }) =>
+      addStockBatch(itemId, batch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itemKeys.all })
+    },
+  })
+}
+
+/**
+ * Update a specific stock batch (e.g., change expiration date or quantity of batch #2)
+ */
+export const useUpdateStockBatch = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ stockId, data }: { stockId: number | string; data: Partial<ItemStock> }) =>
+      updateStockBatch(stockId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itemKeys.all })
+    },
+  })
+}
+
+/**
+ * Delete or consume a specific stock batch without deleting the item catalog entry
+ */
+export const useDeleteStockBatch = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (stockId: number | string) => deleteStockBatch(stockId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all })
     },

@@ -143,7 +143,7 @@ export const getUserSubscriptions = async (req: Request, res: Response): Promise
           select: {
             id: true,
             label: true,
-            type: true,
+            // ❌ Removed 'type: true'
           },
         },
       },

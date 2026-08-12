@@ -1,7 +1,10 @@
 import { apiClient, isAPIError } from './client'
-import type { AddItemData, Item } from '../types'
+import type { AddItemData, AddStockBatchData, Item, ItemStock, UpdateItemData } from '../types'
 
-// Collection API Calls
+// -----------------------------------------------------------------------------
+// Catalog / Item Collection API Calls
+// -----------------------------------------------------------------------------
+
 export const getItems = async (): Promise<Item[]> => {
   return apiClient.get<Item[]>('/items')
 }
@@ -14,16 +17,29 @@ export const getArchivedItems = async (): Promise<Item[]> => {
   return apiClient.get<Item[]>('/items/archived')
 }
 
+// -----------------------------------------------------------------------------
 // Single Item API Calls
+// -----------------------------------------------------------------------------
+
 export const getItemById = async (itemId: number | string): Promise<Item> => {
   return apiClient.get<Item>(`/items/${itemId}`)
 }
 
+/**
+ * Update general catalog fields or top-level batch parameters
+ */
+export const updateItem = async (itemId: number | string, data: UpdateItemData): Promise<Item> => {
+  return apiClient.patch<Item>(`/items/${itemId}`, data)
+}
+
+/**
+ * Convenience helper for quick quantity updates on the primary stock batch
+ */
 export const updateItemQuantity = async (
   itemId: number | string,
   quantity: number
 ): Promise<Item> => {
-  return apiClient.patch<Item>(`/items/${itemId}`, { quantity })
+  return updateItem(itemId, { quantity })
 }
 
 export const deleteItemById = async (itemId: number | string): Promise<void> => {
@@ -43,4 +59,35 @@ export const getItemByBarcode = async (barcode: string): Promise<Item | null> =>
     }
     throw error
   }
+}
+
+// -----------------------------------------------------------------------------
+// Granular Stock Batch API Calls
+// -----------------------------------------------------------------------------
+
+/**
+ * Add a new stock batch to an existing catalog item
+ */
+export const addStockBatch = async (
+  itemId: number | string,
+  batch: AddStockBatchData
+): Promise<Item> => {
+  return apiClient.post<Item>(`/items/${itemId}/stocks`, batch)
+}
+
+/**
+ * Update specific properties of a single stock batch
+ */
+export const updateStockBatch = async (
+  stockId: number | string,
+  data: Partial<ItemStock>
+): Promise<ItemStock> => {
+  return apiClient.patch<ItemStock>(`/stocks/${stockId}`, data)
+}
+
+/**
+ * Delete / consume a specific stock batch without removing the whole catalog item
+ */
+export const deleteStockBatch = async (stockId: number | string): Promise<void> => {
+  await apiClient.delete(`/stocks/${stockId}`)
 }

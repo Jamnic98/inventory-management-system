@@ -48,7 +48,6 @@ describe('Test the locations endpoint', () => {
     const sharedLoc = await prisma.location.create({
       data: {
         label: 'Kitchen Main Cupboard',
-        type: 'STORAGE',
         userId: null,
       },
     })
@@ -58,7 +57,6 @@ describe('Test the locations endpoint', () => {
     const childLoc = await prisma.location.create({
       data: {
         label: 'Top Shelf',
-        type: 'SHELF',
         parentId: sharedLocationId,
         userId: null,
       },
@@ -69,7 +67,6 @@ describe('Test the locations endpoint', () => {
     const personalLoc = await prisma.location.create({
       data: {
         label: 'My Bedroom Drawer',
-        type: 'DRAWER',
         userId: testUserId,
       },
     })
@@ -79,7 +76,6 @@ describe('Test the locations endpoint', () => {
     const otherUserLoc = await prisma.location.create({
       data: {
         label: 'User 2 Safe Box',
-        type: 'STORAGE',
         userId: otherUserId,
       },
     })
@@ -160,7 +156,6 @@ describe('Test the locations endpoint', () => {
     test('should create a shared location when isPersonal is false/omitted', async () => {
       const payload = {
         label: 'Garage Worktable',
-        type: 'ROOM',
       }
 
       const response = await request
@@ -171,7 +166,6 @@ describe('Test the locations endpoint', () => {
 
       expect(response.body).toHaveProperty('id')
       expect(response.body.label).toBe('Garage Worktable')
-      expect(response.body.type).toBe('ROOM')
       expect(response.body.userId).toBeNull()
 
       // Confirm in PostgreSQL
@@ -185,7 +179,6 @@ describe('Test the locations endpoint', () => {
     test('should create a personal location when isPersonal is true', async () => {
       const payload = {
         label: 'Secret Stash Box',
-        type: 'STORAGE',
         parentId: sharedLocationId,
         isPersonal: true,
       }
@@ -205,7 +198,7 @@ describe('Test the locations endpoint', () => {
       await request
         .post('/api/v1/locations')
         .set('x-user-id', testUserId.toString())
-        .send({ label: '   ', type: 'STORAGE' })
+        .send({ label: '   ' })
         .expect(400)
     })
   })
@@ -214,7 +207,6 @@ describe('Test the locations endpoint', () => {
     test('should update location properties and parent reference', async () => {
       const updatePayload = {
         label: 'Renamed Pantry Cupboard',
-        type: 'PANTRY',
       }
 
       const response = await request
@@ -225,7 +217,6 @@ describe('Test the locations endpoint', () => {
 
       expect(response.body.id).toBe(sharedLocationId)
       expect(response.body.label).toBe('Renamed Pantry Cupboard')
-      expect(response.body.type).toBe('PANTRY')
     })
 
     test('should reject setting a location as its own parent with 400', async () => {

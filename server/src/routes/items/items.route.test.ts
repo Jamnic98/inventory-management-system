@@ -1,8 +1,8 @@
 import supertest from 'supertest'
 
-import app from '../../server.js'
 import prisma from '../../db.js'
-import { Item } from '../../generated/prisma/client.js'
+import app from '../../server.js'
+import { EnrichedItem } from '../../utils/itemHelpers.js'
 
 describe('Test the items endpoint', () => {
   const request = supertest(app)
@@ -37,69 +37,108 @@ describe('Test the items endpoint', () => {
     const location = await prisma.location.create({
       data: {
         label: 'Kitchen Main Cupboard',
-        type: 'STORAGE',
       },
     })
     testLocationId = location.id
   })
 
-  // Wipe items table and re-seed before EACH test run
+  // Wipe tables and re-seed catalog + stock entries before EACH test run
   beforeEach(async () => {
+    await prisma.itemStock.deleteMany()
     await prisma.item.deleteMany()
 
     const tenDaysAgo = new Date()
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10)
 
-    await prisma.item.createMany({
-      data: [
-        {
+    await Promise.all([
+      // 1. Shared Beans (quantity: 5, lowStockThreshold: 2 -> isLowStock: false)
+      prisma.item.create({
+        data: {
           label: 'beans',
-          quantity: 5,
           barcode: '5010029000016',
-          locationId: testLocationId,
-          expirationDate: new Date(),
-          lowStockThreshold: 2, // quantity (5) > threshold (2) -> isLowStock: false
-          userId: null, // Shared household item
+          lowStockThreshold: 2,
+          userId: null,
+          stocks: {
+            create: {
+              quantity: 5,
+              locationId: testLocationId,
+              expirationDate: new Date(),
+            },
+          },
         },
-        {
+      }),
+
+      // 2. Personal Bleach (quantity: 1, lowStockThreshold: 3 -> isLowStock: true)
+      prisma.item.create({
+        data: {
           label: 'bleach',
-          quantity: 1,
           barcode: '5010029000023',
-          locationId: testLocationId,
-          lowStockThreshold: 3, // quantity (1) <= threshold (3) -> isLowStock: true
-          userId: testUserId, // Personal item owned by testUserId
-        },
-        {
-          label: 'opened milk',
-          quantity: 1,
-          barcode: null,
-          locationId: testLocationId,
-          openedOn: tenDaysAgo,
-          useWithinDays: 7, // Opened 10 days ago with 7 days limit -> isOpenedExpired: true
-          lowStockThreshold: 1,
-          userId: null, // Shared household item
-        },
-        {
-          label: 'private snack',
-          quantity: 2,
-          barcode: '5010029000030',
-          locationId: testLocationId,
-          userId: otherUserId, // Owned by another user (should be invisible to testUserId)
-        },
-        {
-          label: 'archived cereal',
-          quantity: 0,
-          barcode: '5010029000047',
-          locationId: testLocationId,
-          deletedAt: new Date(), // Soft-deleted item
+          lowStockThreshold: 3,
           userId: testUserId,
+          stocks: {
+            create: {
+              quantity: 1,
+              locationId: testLocationId,
+            },
+          },
         },
-      ],
-    })
+      }),
+
+      // 3. Opened Milk (useWithinDays: 7, opened 10 days ago -> isOpenedExpired: true)
+      prisma.item.create({
+        data: {
+          label: 'opened milk',
+          barcode: null,
+          useWithinDays: 7,
+          lowStockThreshold: 1,
+          userId: null,
+          stocks: {
+            create: {
+              quantity: 1,
+              locationId: testLocationId,
+              openedOn: tenDaysAgo,
+            },
+          },
+        },
+      }),
+
+      // 4. Private Snack (owned by otherUserId -> invisible to testUserId)
+      prisma.item.create({
+        data: {
+          label: 'private snack',
+          barcode: '5010029000030',
+          userId: otherUserId,
+          stocks: {
+            create: {
+              quantity: 2,
+              locationId: testLocationId,
+            },
+          },
+        },
+      }),
+
+      // 5. Archived Cereal (Soft-deleted)
+      prisma.item.create({
+        data: {
+          label: 'archived cereal',
+          barcode: '5010029000047',
+          userId: testUserId,
+          deletedAt: new Date(),
+          stocks: {
+            create: {
+              quantity: 0,
+              locationId: testLocationId,
+              deletedAt: new Date(),
+            },
+          },
+        },
+      }),
+    ])
   })
 
   // Clean up database tables and disconnect
   afterAll(async () => {
+    await prisma.itemStock.deleteMany()
     await prisma.item.deleteMany()
     await prisma.location.deleteMany()
     await prisma.user.deleteMany()
@@ -116,7 +155,7 @@ describe('Test the items endpoint', () => {
     // Excludes: private snack (user2) and archived cereal (soft deleted)
     expect(response.body).toHaveLength(3)
 
-    const labels = response.body.map((i: Item) => i.label)
+    const labels = response.body.map((i: EnrichedItem) => i.label)
     expect(labels).toContain('beans')
     expect(labels).toContain('bleach')
     expect(labels).toContain('opened milk')
@@ -130,18 +169,20 @@ describe('Test the items endpoint', () => {
       expect(item).toHaveProperty('barcode')
       expect(item.locationId).toBe(testLocationId)
       expect(item.location).toBeDefined()
+      expect(item.stocks).toBeInstanceOf(Array)
       expect(item).toHaveProperty('isLowStock')
       expect(item).toHaveProperty('isOpenedExpired')
     }
 
-    const beans = response.body.find((i: Item) => i.label === 'beans')
+    const beans = response.body.find((i: EnrichedItem) => i.label === 'beans')
     expect(beans.barcode).toBe('5010029000016')
+    expect(beans.quantity).toBe(5)
 
-    const milk = response.body.find((i: Item) => i.label === 'opened milk')
+    const milk = response.body.find((i: EnrichedItem) => i.label === 'opened milk')
     expect(milk.barcode).toBeNull()
     expect(milk.isOpenedExpired).toBe(true)
 
-    const bleach = response.body.find((i: Item) => i.label === 'bleach')
+    const bleach = response.body.find((i: EnrichedItem) => i.label === 'bleach')
     expect(bleach.isLowStock).toBe(true)
   })
 
@@ -184,6 +225,7 @@ describe('Test the items endpoint', () => {
     expect(response.body.barcode).toBe('5010029000016')
     expect(response.body.locationId).toBe(testLocationId)
     expect(response.body.lowStockThreshold).toBe(2)
+    expect(response.body.quantity).toBe(5)
     expect(response.body.isLowStock).toBe(false)
   })
 
@@ -226,14 +268,20 @@ describe('Test the items endpoint', () => {
     expect(response.body.isLowStock).toBe(false)
     expect(response.body.isOpenedExpired).toBe(false)
 
-    // Verify record in PostgreSQL
+    // Verify Catalog record and child ItemStock record in PostgreSQL
     const foundInDb = await prisma.item.findUnique({
       where: { id: response.body.id },
+      include: { stocks: true },
     })
     expect(foundInDb).not.toBeNull()
     expect(foundInDb?.barcode).toBe('5010029000054')
     expect(foundInDb?.deletedAt).toBeNull()
     expect(foundInDb?.userId).toBe(testUserId)
+
+    // Verify stock batch details
+    expect(foundInDb?.stocks).toHaveLength(1)
+    expect(foundInDb?.stocks[0].quantity).toBe(2)
+    expect(foundInDb?.stocks[0].locationId).toBe(testLocationId)
   })
 
   test('POST /api/v1/items - create item without barcode (null)', async () => {
@@ -285,14 +333,17 @@ describe('Test the items endpoint', () => {
     expect(response.body.lowStockThreshold).toBe(2)
     expect(response.body.isLowStock).toBe(false)
 
+    // Verify updates across catalog and stock batch in database
     const foundInDb = await prisma.item.findUnique({
       where: { id: seededItem!.id },
+      include: { stocks: true },
     })
-    expect(foundInDb?.quantity).toBe(5)
     expect(foundInDb?.barcode).toBe('9990029000099')
+    expect(foundInDb?.useWithinDays).toBe(14)
+    expect(foundInDb?.stocks[0].quantity).toBe(5)
   })
 
-  test('DELETE /api/v1/items/:id - soft delete item (sets deletedAt timestamp and quantity = 0)', async () => {
+  test('DELETE /api/v1/items/:id - soft delete item (sets deletedAt timestamp and quantity = 0 across stocks)', async () => {
     const seededItem = await prisma.item.findFirst({
       where: { label: 'beans' },
     })
@@ -303,13 +354,15 @@ describe('Test the items endpoint', () => {
       .set('x-user-id', testUserId.toString())
       .expect(204)
 
-    // Item must still exist in DB, but with deletedAt set and quantity = 0
+    // Catalog item and all associated stock batches must have deletedAt timestamp set
     const foundInDb = await prisma.item.findUnique({
       where: { id: seededItem!.id },
+      include: { stocks: true },
     })
     expect(foundInDb).not.toBeNull()
     expect(foundInDb?.deletedAt).not.toBeNull()
-    expect(foundInDb?.quantity).toBe(0)
+    expect(foundInDb?.stocks[0].deletedAt).not.toBeNull()
+    expect(foundInDb?.stocks[0].quantity).toBe(0)
   })
 
   test('POST /api/v1/items/:id/restore - un-archive soft-deleted item', async () => {
@@ -331,8 +384,13 @@ describe('Test the items endpoint', () => {
 
     const foundInDb = await prisma.item.findUnique({
       where: { id: archivedItem!.id },
+      include: { stocks: true },
     })
     expect(foundInDb?.deletedAt).toBeNull()
-    expect(foundInDb?.quantity).toBe(3)
+
+    // Active restored stock batch check
+    const activeStock = foundInDb?.stocks.find((s) => s.deletedAt === null)
+    expect(activeStock).toBeDefined()
+    expect(activeStock?.quantity).toBe(3)
   })
 })

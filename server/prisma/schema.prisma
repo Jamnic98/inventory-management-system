@@ -11,16 +11,16 @@ generator client {
 // Users Model
 // -------------------------------------------------------------
 model User {
-  id         Int      @id @default(autoincrement())
-  email      String   @unique
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
   name       String
-  loginToken String?   @unique @map("login_token") // Maps to login_token column in SQL
+  loginToken String?   @unique @map("login_token")
   tokenExpiry DateTime? @map("token_expiry")
 
   // Relations
   locations             Location[]             // Personal locations owned by this user
-  items                 Item[]                 // Personal items owned by this user
-  locationSubscriptions LocationSubscription[] // Locations this user is subscribed to for alerts
+  items                 Item[]                 // Catalog items created by this user
+  locationSubscriptions LocationSubscription[] // Subscriptions
   settings              UserSettings?
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -35,17 +35,12 @@ model UserSettings {
   userId Int  @unique @map("user_id")
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Default Alert Preferences (Used when creating subscriptions)
   defaultNotifyExpiring Boolean @default(true) @map("default_notify_expiring")
   defaultNotifyLowStock Boolean @default(true) @map("default_notify_low_stock")
 
-  // Auto-Subscription Behavior
   autoSubscribeNewLocations Boolean @default(true) @map("auto_subscribe_new_locations")
+  expiringThresholdDays     Int     @default(7) @map("expiring_threshold_days")
 
-  // Global Notification Thresholds
-  expiringThresholdDays Int @default(7) @map("expiring_threshold_days") // Alert X days before expiry
-
-  // Delivery Channels (Future-proofing)
   emailNotifications Boolean @default(true) @map("email_notifications")
   pushNotifications  Boolean @default(false) @map("push_notifications")
 
@@ -56,23 +51,21 @@ model UserSettings {
 }
 
 // -------------------------------------------------------------
-// Unified Location Hierarchy (Warehouses, Rooms, Shelves, Bins)
+// Unified Location Hierarchy
 // -------------------------------------------------------------
 model Location {
   id    Int    @id @default(autoincrement())
   label String
 
-  // Ownership: null = General / Household Shared, non-null = Personal
   userId Int?  @map("user_id")
   user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  // Self-Referencing Tree
   parentId Int?       @map("parent_id")
   parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children Location[] @relation("LocationHierarchy")
 
   // Relations
-  items         Item[]
+  stocks        ItemStock[]            // Physical stock stored at this location
   subscriptions LocationSubscription[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -82,7 +75,7 @@ model Location {
 }
 
 // -------------------------------------------------------------
-// Location Subscriptions (Alert Routing)
+// Location Subscriptions
 // -------------------------------------------------------------
 model LocationSubscription {
   id Int @id @default(autoincrement())
@@ -93,52 +86,79 @@ model LocationSubscription {
   locationId Int      @map("location_id")
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  // Alert preferences per location
   notifyExpiring Boolean @default(true) @map("notify_expiring")
   notifyLowStock Boolean @default(true) @map("notify_low_stock")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([userId, locationId]) // A user can only subscribe to a location once
+  @@unique([userId, locationId])
   @@map("location_subscriptions")
 }
 
 // -------------------------------------------------------------
-// Inventory Items Model
+// Catalog Item Model (The Product Definition)
 // -------------------------------------------------------------
 model Item {
-  id       Int    @id @default(autoincrement())
-  label    String
-  quantity Int    @default(0)
-  barcode  String? // Optional barcode string (EAN/UPC/Custom)
+  id      Int     @id @default(autoincrement())
+  label   String
+  barcode String? // Unique barcode (EAN/UPC/Custom)
 
-  // Ownership: null = General / Household Shared, non-null = Personal
+  // Global low stock threshold (evaluated across sum of all stocks)
+  lowStockThreshold Int? @map("low_stock_threshold")
+
+  // Default shelf-life rule: "Once opened, use within X days"
+  useWithinDays Int? @map("use_within_days")
+
+  // Creator / Owner: null = Shared Household Item, non-null = Personal
   userId Int?  @map("user_id")
   user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  // Soft Delete Timestamp (null = active item, timestamp = archived / consumed)
+  // Soft Delete Catalog Entry
   deletedAt DateTime? @map("deleted_at")
 
-  // Date tracking (optional for food/perishables)
-  expirationDate DateTime? @map("expiration_date")
-  openedOn       DateTime? @map("opened_on")
-  useWithinDays  Int?      @map("use_within_days") // "Once opened, use within X days"
-
-  // Quantitative stock alert threshold (null = no alert set)
-  lowStockThreshold Int? @map("low_stock_threshold")
-
-  // Foreign key linking directly to the Location table
-  locationId Int?      @map("location_id")
-  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  // Relations
+  stocks ItemStock[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Database performance indexes
   @@index([barcode])
   @@index([deletedAt])
   @@index([userId])
-  @@index([locationId])
   @@map("items")
+}
+
+// -------------------------------------------------------------
+// Physical Stock Batch Model (Quantity per Location)
+// -------------------------------------------------------------
+model ItemStock {
+  id Int @id @default(autoincrement())
+
+  // Link to Master Catalog Item
+  itemId Int  @map("item_id")
+  item   Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  // Physical Location
+  locationId Int?      @map("location_id")
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  quantity Int @default(1)
+
+  // Per-batch expiration & open tracking
+  expirationDate DateTime? @map("expiration_date")
+  openedOn       DateTime? @map("opened_on")
+
+  // Soft Delete / Consumed / Archived Batch
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Performance Indexes
+  @@index([itemId])
+  @@index([locationId])
+  @@index([expirationDate])
+  @@index([deletedAt])
+  @@map("item_stocks")
 }

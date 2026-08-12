@@ -7,17 +7,28 @@ import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { enrichItem, getCurrentUserId, parseId } from '../utils/index.js'
 
 /**
- * GET /items - Retrieve all active items (deletedAt IS NULL)
- * Filters: Personal items (user_id = currentUserId) + Shared household items (user_id IS NULL)
+ * Standard Prisma include object for fetching catalog items with active stock batches
+ */
+const itemWithStocksInclude = {
+  stocks: {
+    where: { deletedAt: null },
+    include: { location: true },
+    orderBy: { expirationDate: 'asc' as const },
+  },
+}
+
+/**
+ * GET /items - Retrieve all active catalog items (deletedAt IS NULL)
+ * Includes active stock batches and their locations.
  */
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
     const { search, locationId } = req.query
 
-    // Base ownership & active status filters
+    // Base ownership & active catalog filters
     const conditions: Prisma.ItemWhereInput[] = [
-      { deletedAt: null }, // Active items only
+      { deletedAt: null },
       {
         OR: [
           { userId: null }, // General / Household shared items
@@ -26,15 +37,22 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       },
     ]
 
-    // Optional location filter
+    // Optional location filter (filters items having stock at this location)
     if (locationId) {
       const parsedLocId = parseId(locationId)
       if (!isNaN(parsedLocId)) {
-        conditions.push({ locationId: parsedLocId })
+        conditions.push({
+          stocks: {
+            some: {
+              locationId: parsedLocId,
+              deletedAt: null,
+            },
+          },
+        })
       }
     }
 
-    // Search filter across BOTH label and barcode
+    // Search filter across label and barcode
     if (search) {
       const searchStr = String(search).trim()
       if (searchStr) {
@@ -47,13 +65,9 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const whereClause: Prisma.ItemWhereInput = {
-      AND: conditions,
-    }
-
     const items = await prisma.item.findMany({
-      where: whereClause,
-      include: { location: true },
+      where: { AND: conditions },
+      include: itemWithStocksInclude,
       orderBy: { createdAt: 'desc' },
     })
 
@@ -65,7 +79,7 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
 }
 
 /**
- * GET /items/archived - Search soft-deleted items for restocking
+ * GET /items/archived - Search soft-deleted catalog items
  */
 export const getArchivedItems = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -74,11 +88,15 @@ export const getArchivedItems = async (req: Request, res: Response): Promise<voi
 
     const items = await prisma.item.findMany({
       where: {
-        deletedAt: { not: null }, // Soft-deleted/consumed items only
+        deletedAt: { not: null },
         OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
         ...(search ? { label: { contains: String(search), mode: 'insensitive' } } : {}),
       },
-      include: { location: true },
+      include: {
+        stocks: {
+          include: { location: true },
+        },
+      },
       orderBy: { updatedAt: 'desc' },
     })
 
@@ -90,7 +108,7 @@ export const getArchivedItems = async (req: Request, res: Response): Promise<voi
 }
 
 /**
- * GET /items/:id - Retrieve item by ID
+ * GET /items/:id - Retrieve catalog item by ID with stock breakdown
  */
 export const getItemByID = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
@@ -104,10 +122,9 @@ export const getItemByID = async (req: Request<{ id: string }>, res: Response): 
 
     const item = await prisma.item.findUnique({
       where: { id: itemId },
-      include: { location: true },
+      include: itemWithStocksInclude,
     })
 
-    // Check existence and ownership access (shared or owned by current user)
     if (!item || (item.userId !== null && item.userId !== currentUserId)) {
       res.status(404).json({ error: 'Item not found' })
       return
@@ -121,8 +138,7 @@ export const getItemByID = async (req: Request<{ id: string }>, res: Response): 
 }
 
 /**
- * POST /items - Create new item
- * Resolves userId: Explicitly passed > Current User > Location default
+ * POST /items - Create new catalog item + initial stock batch
  */
 export const addItem = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -139,21 +155,20 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
       lowStockThreshold,
     } = req.body
 
-    if (!label || locationId === undefined || locationId === null) {
-      res.status(400).json({ error: 'Label and locationId are required' })
+    if (!label) {
+      res.status(400).json({ error: 'Label is required' })
       return
     }
 
-    const parsedLocationId = Number(locationId)
+    const parsedLocationId = locationId ? Number(locationId) : null
 
-    // Determine ownership hierarchy
+    // Determine ownership hierarchy for master catalog item
     let assignedUserId: number | null = null
     if (userId !== undefined) {
       assignedUserId = userId !== null ? Number(userId) : null
     } else if (currentUserId !== null) {
       assignedUserId = currentUserId
-    } else {
-      // Fallback check: if the location has an owner, inherit it
+    } else if (parsedLocationId) {
       const targetLocation = await prisma.location.findUnique({
         where: { id: parsedLocationId },
       })
@@ -162,23 +177,30 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    // Create Catalog Item + Initial ItemStock in a single nested write
     const newItem = await prisma.item.create({
       data: {
         label: label.trim(),
-        quantity: quantity !== undefined ? Number(quantity) : 0,
         barcode: barcode?.trim() || null,
-        locationId: locationId ? parsedLocationId : null,
         userId: assignedUserId,
-        expirationDate: expirationDate ? new Date(expirationDate) : null,
-        openedOn: openedOn ? new Date(openedOn) : null,
         useWithinDays:
           useWithinDays !== undefined && useWithinDays !== null ? Number(useWithinDays) : null,
         lowStockThreshold:
           lowStockThreshold !== undefined && lowStockThreshold !== null
             ? Number(lowStockThreshold)
             : null,
+
+        // Initial physical stock batch
+        stocks: {
+          create: {
+            quantity: quantity !== undefined ? Number(quantity) : 1,
+            locationId: parsedLocationId,
+            expirationDate: expirationDate ? new Date(expirationDate) : null,
+            openedOn: openedOn ? new Date(openedOn) : null,
+          },
+        },
       },
-      include: { location: true },
+      include: itemWithStocksInclude,
     })
 
     res.status(201).json(enrichItem(newItem))
@@ -189,7 +211,7 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
 }
 
 /**
- * PATCH /items/:id - Dynamically update an item
+ * PATCH /items/:id - Update catalog metadata and/or primary stock entry
  */
 export const updateItemByID = async (
   req: Request<{ id: string }>,
@@ -212,45 +234,89 @@ export const updateItemByID = async (
       openedOn,
       useWithinDays,
       lowStockThreshold,
+      stockId, // Optional: Target specific stock batch if provided
     } = req.body
 
     const updateData: Prisma.ItemUpdateInput = {}
 
-    // String fields (safely check types before trimming)
+    // 1. Update Catalog Level Fields
     if (typeof label === 'string') updateData.label = label.trim()
     if (typeof barcode === 'string') updateData.barcode = barcode.trim()
     if (barcode === null) updateData.barcode = null
 
-    // Numeric fields
-    if (quantity !== undefined) updateData.quantity = Number(quantity)
     if (useWithinDays !== undefined)
       updateData.useWithinDays = useWithinDays !== null ? Number(useWithinDays) : null
     if (lowStockThreshold !== undefined)
       updateData.lowStockThreshold = lowStockThreshold !== null ? Number(lowStockThreshold) : null
 
-    // Date fields
-    if (expirationDate !== undefined)
-      updateData.expirationDate = expirationDate ? new Date(expirationDate) : null
-    if (openedOn !== undefined) updateData.openedOn = openedOn ? new Date(openedOn) : null
-
-    // Relation updates (supports both connecting and disconnecting)
-    if (locationId !== undefined) {
-      updateData.location =
-        locationId !== null ? { connect: { id: Number(locationId) } } : { disconnect: true }
-    }
-
     if (userId !== undefined) {
       updateData.user = userId !== null ? { connect: { id: Number(userId) } } : { disconnect: true }
     }
 
-    // Perform DB Update
-    const updatedItem = await prisma.item.update({
-      where: { id: itemId },
-      data: updateData,
-      include: { location: true },
+    // 2. Perform DB Transaction to update Item Catalog and target ItemStock batch
+    const updatedItem = await prisma.$transaction(async (tx) => {
+      // Update catalog entry
+      await tx.item.update({
+        where: { id: itemId },
+        data: updateData,
+      })
+
+      // Check if stock-level fields need updating
+      const hasStockUpdates =
+        quantity !== undefined ||
+        locationId !== undefined ||
+        expirationDate !== undefined ||
+        openedOn !== undefined
+
+      if (hasStockUpdates) {
+        // Find existing stock batch (specific stockId OR first active stock)
+        let targetStockId = stockId ? Number(stockId) : null
+
+        if (!targetStockId) {
+          const firstStock = await tx.itemStock.findFirst({
+            where: { itemId, deletedAt: null },
+            orderBy: { id: 'asc' },
+          })
+          targetStockId = firstStock?.id ?? null
+        }
+
+        const stockUpdateData: Prisma.ItemStockUpdateInput = {}
+        if (quantity !== undefined) stockUpdateData.quantity = Number(quantity)
+        if (expirationDate !== undefined)
+          stockUpdateData.expirationDate = expirationDate ? new Date(expirationDate) : null
+        if (openedOn !== undefined) stockUpdateData.openedOn = openedOn ? new Date(openedOn) : null
+        if (locationId !== undefined) {
+          stockUpdateData.location =
+            locationId !== null ? { connect: { id: Number(locationId) } } : { disconnect: true }
+        }
+
+        if (targetStockId) {
+          await tx.itemStock.update({
+            where: { id: targetStockId },
+            data: stockUpdateData,
+          })
+        } else {
+          // If no active stock batch exists, create one
+          await tx.itemStock.create({
+            data: {
+              itemId,
+              quantity: quantity !== undefined ? Number(quantity) : 1,
+              locationId: locationId ? Number(locationId) : null,
+              expirationDate: expirationDate ? new Date(expirationDate) : null,
+              openedOn: openedOn ? new Date(openedOn) : null,
+            },
+          })
+        }
+      }
+
+      // Return fully updated item with stocks
+      return tx.item.findUniqueOrThrow({
+        where: { id: itemId },
+        include: itemWithStocksInclude,
+      })
     })
 
-    // Fire background event (Decoupled & eliminates dangling .catch calls)
+    // Fire background event
     itemEvents.emit('item:updated', updatedItem)
 
     res.status(200).json(enrichItem(updatedItem))
@@ -261,7 +327,7 @@ export const updateItemByID = async (
 }
 
 /**
- * DELETE /items/:id - Soft Delete (Sets deletedAt = NOW() and quantity = 0)
+ * DELETE /items/:id - Soft delete catalog item AND all related stock batches
  */
 export const deleteItemByID = async (
   req: Request<{ id: string }>,
@@ -274,14 +340,19 @@ export const deleteItemByID = async (
       return
     }
 
-    // Soft delete by updating deletedAt timestamp
-    await prisma.item.update({
-      where: { id: itemId },
-      data: {
-        deletedAt: new Date(),
-        quantity: 0,
-      },
-    })
+    const now = new Date()
+
+    // Soft-delete catalog item AND set all related stock batches to deletedAt = NOW()
+    await prisma.$transaction([
+      prisma.item.update({
+        where: { id: itemId },
+        data: { deletedAt: now },
+      }),
+      prisma.itemStock.updateMany({
+        where: { itemId, deletedAt: null },
+        data: { deletedAt: now, quantity: 0 },
+      }),
+    ])
 
     res.status(204).send()
   } catch (error: unknown) {
@@ -291,7 +362,7 @@ export const deleteItemByID = async (
 }
 
 /**
- * POST /items/:id/restore - Un-archive / Restock an item (Sets deletedAt = NULL)
+ * POST /items/:id/restore - Un-archive catalog item & restore active stock
  */
 export const restoreItemByID = async (
   req: Request<{ id: string }>,
@@ -306,22 +377,27 @@ export const restoreItemByID = async (
 
     const { quantity, locationId, expirationDate } = req.body
 
-    const updateData: Prisma.ItemUpdateInput = {
-      deletedAt: null, // Clear archive timestamp
-      quantity: quantity !== undefined ? Number(quantity) : 1,
-    }
+    const restoredItem = await prisma.$transaction(async (tx) => {
+      // 1. Un-archive catalog item
+      await tx.item.update({
+        where: { id: itemId },
+        data: { deletedAt: null },
+      })
 
-    if (locationId !== undefined) {
-      updateData.location = { connect: { id: Number(locationId) } }
-    }
-    if (expirationDate !== undefined) {
-      updateData.expirationDate = expirationDate ? new Date(expirationDate) : null
-    }
+      // 2. Create a fresh stock batch for restored item
+      await tx.itemStock.create({
+        data: {
+          itemId,
+          quantity: quantity !== undefined ? Number(quantity) : 1,
+          locationId: locationId ? Number(locationId) : null,
+          expirationDate: expirationDate ? new Date(expirationDate) : null,
+        },
+      })
 
-    const restoredItem = await prisma.item.update({
-      where: { id: itemId },
-      data: updateData,
-      include: { location: true },
+      return tx.item.findUniqueOrThrow({
+        where: { id: itemId },
+        include: itemWithStocksInclude,
+      })
     })
 
     res.status(200).json(enrichItem(restoredItem))

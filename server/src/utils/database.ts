@@ -6,6 +6,7 @@ export default async function seedDatabase() {
   // List the initial users you want in your system
   const initialUsers = [
     {
+      id: 1,
       email: 'jamie.paul.stimpson@gmail.com',
       name: 'Jamie Stimpson',
     },
@@ -15,7 +16,7 @@ export default async function seedDatabase() {
     // Upsert ensures running the seed multiple times won't create duplicate users
     const user = await prisma.user.upsert({
       where: { email: userData.email },
-      update: { name: userData.name },
+      update: { id: userData.id, name: userData.name },
       create: userData,
     })
 
