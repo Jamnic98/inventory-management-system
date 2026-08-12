@@ -2,12 +2,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 
 import { apiClient } from '../api/client'
 import { TOKEN_KEY } from '../utils/constants'
-
-export type User = {
-  id: number
-  email: string
-  name: string | null
-}
+import { type User } from '../types/user'
 
 type AuthContextType = {
   user: User | null
@@ -95,8 +90,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   // Logout handler
   const logout = useCallback(async () => {
     try {
-      const response: { message: string } = await apiClient.post('/auth/logout')
-      console.log(response.message)
+      await apiClient.post('/auth/logout')
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 
 import { ItemFormModal, ItemFilterBar, ItemsTable } from '../components'
 import { getItems, updateItemQuantity, getLocations } from '../api'
+import { useAuth } from '../hooks/useAuth'
 import type { Location, Item, ItemFilters } from '../types'
 
 const DEFAULT_FILTERS: ItemFilters = {
@@ -34,6 +35,9 @@ export default function Items() {
   const [items, setItems] = useState<Item[] | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [filters, setFilters] = useState<ItemFilters>(DEFAULT_FILTERS)
+
+  const { user } = useAuth()
+  const currentUserId = user?.id
 
   // Modal & Selected Item States
   // TODO: include
@@ -214,12 +218,13 @@ export default function Items() {
         />
       )}
 
-      {/* TODO: move */}
-      {/* ADD ITEM MODAL / DRAWER PLACEHOLDER */}
+      {/* ADD ITEM MODAL */}
       {isAddOpen && (
         <ItemFormModal
           isOpen={isAddOpen}
           locations={locations}
+          initialBarcode={''}
+          currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
           onItemAdded={(newItem: Item) => {
             setItems((prev) => (prev ? [newItem, ...prev] : [newItem]))

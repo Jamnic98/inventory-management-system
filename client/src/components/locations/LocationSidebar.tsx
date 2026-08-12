@@ -21,14 +21,15 @@ export default function LocationSidebar({
   onSearchChange,
 }: LocationSidebarProps) {
   return (
-    <aside className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
+    <aside className="w-full shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
       {/* Sidebar Header & Search */}
       <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Locations</h2>
           <button
+            type="button"
             onClick={onAddRoot}
-            className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition flex justify-center items-center gap-0.5"
+            className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition flex justify-center items-center gap-0.5 cursor-pointer"
           >
             <Plus size={14} /> Add
           </button>

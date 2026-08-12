@@ -61,7 +61,6 @@ model UserSettings {
 model Location {
   id    Int    @id @default(autoincrement())
   label String
-  type  String @default("LOCATION") // e.g., 'WAREHOUSE', 'ROOM', 'SHELF'
 
   // Ownership: null = General / Household Shared, non-null = Personal
   userId Int?  @map("user_id")

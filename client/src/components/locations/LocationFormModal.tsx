@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 
-import { Modal } from '..'
+import { Modal, Select } from '..'
 import type { Location } from '../../types/location'
 import { useCreateLocation, useUpdateLocation } from '../../hooks/useLocations'
 
@@ -15,13 +15,11 @@ interface LocationFormModalProps {
 
 type FormState = {
   label: string
-  // description: string
   parentId: number | null
 }
 
 const INITIAL_FORM: FormState = {
   label: '',
-  // description: '',
   parentId: null,
 }
 
@@ -46,14 +44,11 @@ export default function LocationFormModal({
   useEffect(() => {
     if (isOpen) {
       if (locationToEdit) {
-        // Pre-fill form fields for Editing
         setForm({
           label: locationToEdit.label || '',
-          // description: locationToEdit.description || '',
           parentId: locationToEdit.parentId ? Number(locationToEdit.parentId) : null,
         })
       } else {
-        // Reset form for Creating
         setForm({
           ...INITIAL_FORM,
           parentId: initialParentId ? Number(initialParentId) : null,
@@ -62,6 +57,41 @@ export default function LocationFormModal({
       setError(null)
     }
   }, [isOpen, initialParentId, locationToEdit])
+
+  // Get all descendant IDs of a location to prevent cyclic relationships
+  const invalidParentIds = useMemo(() => {
+    if (!isEditMode || !locationToEdit) return new Set<number>()
+
+    const set = new Set<number>([locationToEdit.id])
+
+    const addChildren = (parentId: number) => {
+      locations.forEach((loc) => {
+        if (loc.parentId === parentId) {
+          set.add(loc.id)
+          addChildren(loc.id) // Recurse through descendants
+        }
+      })
+    }
+
+    addChildren(locationToEdit.id)
+    return set
+  }, [locations, locationToEdit, isEditMode])
+
+  // Filter out self AND descendants from valid parent list
+  const validParentLocations = useMemo(() => {
+    return locations.filter((loc) => !invalidParentIds.has(loc.id))
+  }, [locations, invalidParentIds])
+
+  // Memoized options list formatted for the Select component
+  const parentOptions = useMemo(() => {
+    return [
+      { value: '', label: 'None (Top-Level Root Location)' },
+      ...validParentLocations.map((loc) => ({
+        value: loc.id,
+        label: loc.label,
+      })),
+    ]
+  }, [validParentLocations])
 
   const handleChange = (field: keyof FormState, value: string | number | null) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -79,12 +109,10 @@ export default function LocationFormModal({
 
     const payload = {
       label: form.label.trim(),
-      // description: form.description.trim() || undefined,
       parentId: form.parentId ? Number(form.parentId) : null,
     }
 
     if (isEditMode && locationToEdit) {
-      // UPDATE Existing Location
       updateLocation(
         {
           id: locationToEdit.id,
@@ -104,7 +132,6 @@ export default function LocationFormModal({
         }
       )
     } else {
-      // CREATE New Location
       createLocation(payload, {
         onSuccess: (newLoc) => {
           onLocationAdded?.(newLoc)
@@ -121,7 +148,6 @@ export default function LocationFormModal({
     }
   }
 
-  // Dynamic modal title determination
   const getModalTitle = () => {
     if (isEditMode) return `Edit Location: ${locationToEdit?.label}`
     if (form.parentId) return 'Add Sub-Location'
@@ -138,44 +164,33 @@ export default function LocationFormModal({
       )}
 
       {/* Form Body */}
-      <form onSubmit={handleSubmit} className="space-y-3 text-sm">
+      <form onSubmit={handleSubmit} className="space-y-3 text-sm w-full max-w-full overflow-hidden">
         {/* Location Name */}
-        <label className="block text-xs font-medium text-gray-700">
-          Location Name <span className="text-red-500">*</span>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Location Name <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
             required
             placeholder="e.g., Shelf 2, Row B, or Cold Storage"
-            className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
             value={form.label}
             onChange={(e) => handleChange('label', e.target.value)}
           />
-        </label>
+        </div>
 
         {/* Parent Location Dropdown */}
-        <label className="block text-xs font-medium text-gray-700">
-          Parent Location
-          <select
-            className="mt-1 w-full p-2 border rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Parent Location</label>
+          <Select<string | number>
+            options={parentOptions}
             value={form.parentId ?? ''}
-            onChange={(e) =>
-              handleChange('parentId', e.target.value ? Number(e.target.value) : null)
-            }
-          >
-            <option value="">None (Top-Level Root Location)</option>
-            {locations
-              // Prevent a location from setting itself as its own parent in Edit mode
-              .filter((loc) => !isEditMode || String(loc.id) !== String(locationToEdit?.id))
-              .map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.label}
-                </option>
-              ))}
-          </select>
-          <span className="text-[11px] text-gray-500 mt-0.5 block">
-            Select a parent to nest this location under another area.
-          </span>
-        </label>
+            onChange={(val: string | number) => handleChange('parentId', val ? Number(val) : null)}
+            placeholder="None (Top-Level Root Location)"
+            direction="up"
+          />
+        </div>
 
         {/* Form Actions */}
         <div className="flex justify-end gap-2 pt-3 border-t">
@@ -183,7 +198,7 @@ export default function LocationFormModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="px-3 py-1.5 border rounded text-gray-600 text-sm hover:bg-gray-100 transition cursor-pointer"
+            className="px-3 py-1.5 border border-gray-300 rounded text-gray-600 text-sm hover:bg-gray-100 transition cursor-pointer"
           >
             Cancel
           </button>

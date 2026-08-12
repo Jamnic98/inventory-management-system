@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Camera, Clock, ChevronDown, ChevronUp, AlertTriangle, Lock, ScanLine } from 'lucide-react'
 
-import { BarcodeScanner, Modal } from '..'
-import type { Location, Item } from '../../types'
+import { BarcodeScanner, Modal, Select } from '..'
 import { useCreateItem } from '../../hooks'
+import type { Location, Item } from '../../types'
 
 interface ItemFormModalProps {
   isOpen: boolean
   locations: Location[]
   initialBarcode?: string
-  currentUserId?: number | null // Passed to support setting item ownership
+  currentUserId?: number | null
   onClose: () => void
   onItemAdded: (newItem: Item) => void
 }
@@ -22,7 +23,7 @@ type FormState = {
   openedOn: string
   useWithinDays: string
   lowStockThreshold: string
-  isPersonal: boolean // Toggle for Personal vs Shared item
+  isPersonal: boolean
 }
 
 const INITIAL_FORM: FormState = {
@@ -33,7 +34,7 @@ const INITIAL_FORM: FormState = {
   expirationDate: '',
   openedOn: '',
   useWithinDays: '',
-  lowStockThreshold: '1',
+  lowStockThreshold: '',
   isPersonal: false,
 }
 
@@ -47,11 +48,19 @@ export default function ItemFormModal({
 }: ItemFormModalProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [error, setError] = useState<string | null>(null)
-  const [isScannerActive, setIsScannerActive] = useState<boolean>(true)
+  const [showScanner, setShowScanner] = useState<boolean>(true)
+  const [showShelfLife, setShowShelfLife] = useState<boolean>(false)
 
   const { mutate: createItem, isPending } = useCreateItem()
 
-  // Reset & sync state when modal opens
+  const locationOptions = useMemo(() => {
+    return locations.map((loc) => ({
+      value: loc.id,
+      label: loc.label,
+      badge: loc.userId ? '🔒 (Private)' : undefined,
+    }))
+  }, [locations])
+
   useEffect(() => {
     if (isOpen) {
       setForm({
@@ -59,7 +68,8 @@ export default function ItemFormModal({
         barcode: initialBarcode || '',
       })
       setError(null)
-      setIsScannerActive(true)
+      setShowScanner(true)
+      setShowShelfLife(false)
     }
   }, [isOpen, initialBarcode])
 
@@ -69,13 +79,33 @@ export default function ItemFormModal({
 
   const handleScanSuccess = (scannedCode: string) => {
     handleChange('barcode', scannedCode)
-    setIsScannerActive(false)
+    setShowScanner(false)
+  }
+
+  // Auto-toggle privacy based on chosen location's ownership
+  const handleLocationChange = (selectedLocId: number | null) => {
+    handleChange('locationId', selectedLocId)
+
+    if (!selectedLocId) {
+      handleChange('isPersonal', false)
+      return
+    }
+
+    // Find the selected location object
+    const selectedLoc = locations.find((loc) => loc.id === selectedLocId)
+
+    // If the location belongs to the current user, default the item to private
+    if (selectedLoc && currentUserId && selectedLoc.userId === currentUserId) {
+      handleChange('isPersonal', true)
+    } else {
+      handleChange('isPersonal', false)
+    }
   }
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!form.label.trim()) {
-      setError('Item name is required.')
+      setError('Label is required.')
       return
     }
 
@@ -89,7 +119,7 @@ export default function ItemFormModal({
       expirationDate: form.expirationDate ? new Date(form.expirationDate) : null,
       openedOn: form.openedOn ? new Date(form.openedOn) : null,
       useWithinDays: form.useWithinDays ? Number(form.useWithinDays) : null,
-      lowStockThreshold: form.lowStockThreshold ? Number(form.lowStockThreshold) : null,
+      lowStockThreshold: form.lowStockThreshold !== '' ? Number(form.lowStockThreshold) : null,
       userId: form.isPersonal && currentUserId ? currentUserId : null,
     }
 
@@ -101,188 +131,203 @@ export default function ItemFormModal({
       },
       onError: (err) => {
         console.error('Failed to create item:', err)
-        setError(err.message || 'Failed to save item. Please try again.')
+        setError(err.message || 'Failed to save item.')
       },
     })
   }
 
   return (
     <Modal isOpen={isOpen} title="Add New Item" onClose={onClose}>
-      {/* Error Alert */}
       {error && (
-        <div className="p-2 mb-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
-          {error}
+        <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Barcode Scanner Section */}
-      <div className="space-y-2 bg-gray-50 p-2.5 rounded border mb-3">
-        <label className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isScannerActive}
-            onChange={(e) => setIsScannerActive(e.target.checked)}
-            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-          />
-          <span>📷 Scan Barcode via Camera</span>
-        </label>
-
-        {isScannerActive && (
-          <div className="pt-1">
-            <BarcodeScanner
-              onScanSuccess={handleScanSuccess}
-              onScanFailure={() => console.error('Failed to scan barcode')}
-            />
-            <p className="text-[11px] text-gray-500 text-center mt-1">
-              Aim camera at barcode to auto-fill input below
-            </p>
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {/* BARCODE & SCANNER SECTION */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <ScanLine className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Barcode (optional)"
+                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs bg-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                value={form.barcode}
+                onChange={(e) => handleChange('barcode', e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowScanner(!showScanner)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm shrink-0"
+            >
+              <Camera className="w-3.5 h-3.5 text-slate-500" />
+              <span>{showScanner ? 'Close Camera' : 'Scan'}</span>
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* Form Body */}
-      <form onSubmit={handleSubmit} className="space-y-3 text-sm">
-        {/* Barcode Field */}
-        <label className="block text-xs font-medium text-gray-700">
-          Barcode <span className="text-gray-400 font-normal">(Optional)</span>
-          <input
-            type="text"
-            placeholder="Scan above or type manually..."
-            className="mt-1 w-full p-2 border rounded text-sm bg-gray-50 font-mono focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={form.barcode}
-            onChange={(e) => handleChange('barcode', e.target.value)}
-          />
-        </label>
+          {showScanner && (
+            <div className="relative pt-2 mt-2 border-t border-slate-200 overflow-hidden rounded-lg">
+              <div className="rounded-lg overflow-hidden border border-slate-300 shadow-inner">
+                <BarcodeScanner
+                  onScanSuccess={handleScanSuccess}
+                  onScanFailure={() => console.error('Failed to scan barcode')}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Item Name */}
-        <label className="block text-xs font-medium text-gray-700">
-          Item Name <span className="text-red-500">*</span>
+        {/* ITEM NAME */}
+        <div>
+          <label className="block font-medium text-slate-700 mb-1.5">
+            Item Label <span className="text-rose-500 font-bold">*</span>
+          </label>
           <input
             type="text"
             required
-            placeholder="e.g., Whole Milk 2%"
-            className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Enter item label..."
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
             value={form.label}
             onChange={(e) => handleChange('label', e.target.value)}
           />
-        </label>
+        </div>
 
-        {/* Quantity & Low Stock Threshold */}
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block text-xs font-medium text-gray-700">
-            Quantity
+        {/* LOCATION DROPDOWN */}
+        <div className="w-full min-w-0">
+          <label className="block font-medium text-slate-700 mb-1.5">
+            Location <span className="text-rose-500 font-bold">*</span>
+          </label>
+          <Select<string | number>
+            options={locationOptions}
+            value={form.locationId ?? ''}
+            onChange={(val: string | number) => handleLocationChange(val ? Number(val) : null)}
+            placeholder="Select a location..."
+            required
+          />
+        </div>
+
+        {/* QUANTITY & LOW STOCK THRESHOLD ROW */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-700 mb-1.5">
+              Quantity <span className="text-rose-500 font-bold">*</span>
+            </label>
             <input
               type="number"
               min="0"
-              className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              required
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               value={form.quantity}
               onChange={(e) => handleChange('quantity', Number(e.target.value))}
             />
-          </label>
+          </div>
 
-          <label className="block text-xs font-medium text-gray-700">
-            Low Stock Alert Below
+          <div>
+            <label className="block font-medium text-slate-700 mb-1.5">Low Stock Alert Below</label>
             <input
               type="number"
               min="0"
-              placeholder="1"
-              className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g., 2"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
               value={form.lowStockThreshold}
               onChange={(e) => handleChange('lowStockThreshold', e.target.value)}
             />
-          </label>
+          </div>
         </div>
 
-        {/* Location Dropdown */}
-        <label className="block text-xs font-medium text-gray-700">
-          Location
-          <select
-            className="mt-1 w-full p-2 border rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={form.locationId ?? ''}
-            onChange={(e) =>
-              handleChange('locationId', e.target.value ? Number(e.target.value) : null)
-            }
-          >
-            <option value="">No Location Assigned</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {/* Ownership Toggle */}
+        {/* PRIVATE TOGGLE ROW */}
         {currentUserId && (
-          <div className="p-2.5 bg-gray-50 border rounded flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-gray-800">Private Item</div>
-              <div className="text-[11px] text-gray-500">
-                {form.isPersonal ? 'Visible only to you' : 'Shared with entire household'}
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.isPersonal}
-                onChange={(e) => handleChange('isPersonal', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
+          <div className="flex items-center justify-between px-3 py-2 border border-slate-200 rounded-lg bg-slate-50">
+            <span className="font-medium text-slate-700 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              Private Item
+            </span>
+            <input
+              type="checkbox"
+              checked={form.isPersonal}
+              onChange={(e) => handleChange('isPersonal', e.target.checked)}
+              className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+            />
           </div>
         )}
 
-        {/* Expiration Date */}
-        <label className="block text-xs font-medium text-gray-700">
-          Expiration Date
-          <input
-            type="date"
-            className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={form.expirationDate}
-            onChange={(e) => handleChange('expirationDate', e.target.value)}
-          />
-        </label>
+        {/* COLLAPSIBLE SHELF LIFE */}
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setShowShelfLife(!showShelfLife)}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-100/80 transition-colors text-slate-700 font-medium"
+          >
+            <span className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-500" />
+              Shelf Life & Expiration
+            </span>
+            {showShelfLife ? (
+              <ChevronUp className="w-4 h-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            )}
+          </button>
 
-        {/* Opened On & Use Within Days */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-          <label className="block text-xs font-medium text-gray-700">
-            Opened On Date
-            <input
-              type="date"
-              className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={form.openedOn}
-              onChange={(e) => handleChange('openedOn', e.target.value)}
-            />
-          </label>
+          {showShelfLife && (
+            <div className="space-y-3 p-3 mt-2 bg-slate-50/50 rounded-xl border border-slate-100">
+              <div>
+                <label className="block font-medium text-slate-700 mb-1.5">Expiration Date</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  value={form.expirationDate}
+                  onChange={(e) => handleChange('expirationDate', e.target.value)}
+                />
+              </div>
 
-          <label className="block text-xs font-medium text-gray-700">
-            Use Within (Days)
-            <input
-              type="number"
-              min="1"
-              placeholder="e.g., 7"
-              className="mt-1 w-full p-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={form.useWithinDays}
-              onChange={(e) => handleChange('useWithinDays', e.target.value)}
-            />
-          </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1.5">Opened On</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    value={form.openedOn}
+                    onChange={(e) => handleChange('openedOn', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1.5">
+                    Use Within (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g., 7"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                    value={form.useWithinDays}
+                    onChange={(e) => handleChange('useWithinDays', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-3 border-t">
+        {/* ICONS */}
+        <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="px-3 py-1.5 border rounded text-gray-600 text-sm hover:bg-gray-100"
+            className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50 transition-colors shadow-sm"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded shadow-sm disabled:opacity-50"
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50"
           >
             {isPending ? 'Adding...' : 'Add Item'}
           </button>

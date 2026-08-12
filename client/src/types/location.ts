@@ -1,18 +1,25 @@
 import { Item } from './item'
+import { type User } from './user'
 
 export interface Location {
   id: number
   label: string
-  type: string
-  parentId: number | null
-  parent?: Location
-  children: Location[]
 
-  items: Item[]
-  subscriptions: LocationSubscription[]
+  // Ownership: null = General / Household Shared, non-null = Personal
+  userId?: number | null
+  user?: User | null
 
-  createdAt: Date | null
-  updatedAt: Date | null
+  // Self-Referencing Tree
+  parentId?: number | null
+  parent?: Location | null
+  children?: Location[]
+
+  // Relations
+  items?: Item[]
+  subscriptions?: LocationSubscription[]
+
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
 }
 
 export interface LocationOption {

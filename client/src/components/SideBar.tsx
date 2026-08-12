@@ -56,7 +56,7 @@ export default function SideBar() {
     const mobileNavItems: NavItem[] = [
       ...MAIN_NAV_ITEMS,
       ...SETTINGS_NAV_ITEMS,
-      { to: '/profile', label: 'Profile', icon: UserIcon }, // Replaced Logout with Profile tab
+      { to: '/profile', label: 'Profile', icon: UserIcon },
     ]
 
     return (
@@ -70,7 +70,7 @@ export default function SideBar() {
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors ${
+              `flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors ${
                 isActive ? 'font-semibold text-emerald-600' : 'text-slate-500 hover:text-slate-800'
               }`
             }
@@ -115,7 +115,7 @@ export default function SideBar() {
       {/* Main Section */}
       <div className="mt-6 flex flex-col gap-1">
         {!isCollapsed && (
-          <span className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <span className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
             Main
           </span>
         )}
@@ -144,7 +144,7 @@ export default function SideBar() {
       {/* Settings Section */}
       <div className="mt-6 flex flex-col gap-1">
         {!isCollapsed && (
-          <span className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <span className="px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
             System
           </span>
         )}
@@ -188,7 +188,7 @@ export default function SideBar() {
           {!isCollapsed && (
             <div className="flex flex-col truncate">
               <span className="truncate text-xs font-semibold text-slate-800">{displayName}</span>
-              <span className="truncate text-[11px] text-slate-500">{displaySubtext}</span>
+              <span className="truncate text-xs text-slate-500">{displaySubtext}</span>
             </div>
           )}
         </NavLink>

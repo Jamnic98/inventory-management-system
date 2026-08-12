@@ -59,11 +59,6 @@ export const getLocationById = async (req: Request, res: Response): Promise<void
       return
     }
 
-    if (isNaN(locationId)) {
-      res.status(400).json({ error: 'Invalid ID format' })
-      return
-    }
-
     const location = await prisma.location.findFirst({
       where: {
         id: locationId,
@@ -94,7 +89,7 @@ export const getLocationById = async (req: Request, res: Response): Promise<void
 export const addLocation = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
-    const { label, type, parentId, isPersonal } = req.body
+    const { label, parentId, isPersonal } = req.body
 
     // Validate label presence and prevent whitespace-only strings
     if (!label || typeof label !== 'string' || label.trim().length === 0) {
@@ -119,7 +114,6 @@ export const addLocation = async (req: Request, res: Response): Promise<void> =>
       const location = await tx.location.create({
         data: {
           label: trimmedLabel,
-          type: type || 'LOCATION',
           parentId: parsedParentId,
           userId: isPersonal && currentUserId ? currentUserId : null,
         },
@@ -178,20 +172,22 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
       return
     }
 
-    const { label, type, parentId, isPersonal } = req.body
+    const { label, parentId, isPersonal } = req.body
 
     // Prevent a location from becoming its own parent
-    if (parentId && Number(parentId) === locationId) {
-      res.status(400).json({ error: 'A location cannot be its own parent' })
-      return
+    if (parentId !== undefined && parentId !== null) {
+      const parsedParent = parseId(parentId)
+      if (parsedParent === locationId) {
+        res.status(400).json({ error: 'A location cannot be its own parent' })
+        return
+      }
     }
 
     const updateData: Prisma.LocationUpdateInput = {}
 
     if (label !== undefined) updateData.label = String(label).trim()
-    if (type !== undefined) updateData.type = String(type)
     if (parentId !== undefined) {
-      updateData.parent = parentId ? { connect: { id: Number(parentId) } } : { disconnect: true }
+      updateData.parent = parentId ? { connect: { id: parseId(parentId) } } : { disconnect: true }
     }
     if (isPersonal !== undefined) {
       updateData.user =
@@ -214,11 +210,8 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
   }
 }
 
-// DELETE /api/v1/locations/:id
-export const deleteLocationById = async (
-  req: Request<{ id: string }>,
-  res: Response
-): Promise<void> => {
+// DELETE /api/v1/locations/:id - Delete location
+export const deleteLocationById = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseId(req.params.id)
     if (isNaN(id)) {
@@ -226,7 +219,7 @@ export const deleteLocationById = async (
       return
     }
 
-    const currentUserId = req.user?.id
+    const currentUserId = getCurrentUserId(req)
 
     // Fetch the target location to verify existence and ownership
     const location = await prisma.location.findUnique({
@@ -245,14 +238,22 @@ export const deleteLocationById = async (
       return
     }
 
-    // Child reference check: Prevent deleting location if child locations reference it
-    const childCount = await prisma.location.count({
-      where: { parentId: id },
-    })
+    // Check for child locations or assigned active items
+    const [childCount, itemCount] = await Promise.all([
+      prisma.location.count({ where: { parentId: id } }),
+      prisma.item.count({ where: { locationId: id, deletedAt: null } }),
+    ])
 
     if (childCount > 0) {
       res.status(400).json({
-        error: 'Cannot delete location that contains child locations',
+        error: 'Cannot delete location that contains sub-locations',
+      })
+      return
+    }
+
+    if (itemCount > 0) {
+      res.status(400).json({
+        error: 'Cannot delete location that currently contains active items',
       })
       return
     }

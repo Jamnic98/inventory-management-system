@@ -5,13 +5,13 @@ import { useAuth } from '../hooks/useAuth'
 export default function ProfilePage() {
   const { user } = useAuth()
 
-  const displayName = user?.name || user?.email || 'Home User'
+  const displayName = user?.name || 'Home User'
   const displayEmail = user?.email || '-'
   const userInitial = displayName.charAt(0).toUpperCase()
 
   return (
     <div className="mx-auto max-w-xl p-4 sm:p-6">
-      <h1 className="text-2xl font-bold text-slate-900">UserProfile</h1>
+      <h1 className="text-2xl font-bold text-slate-900">User Profile</h1>
       <p className="mt-1 text-sm text-slate-500">View user details and system configuration.</p>
 
       {/* User Card */}

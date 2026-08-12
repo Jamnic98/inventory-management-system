@@ -55,7 +55,6 @@ export const useCreateLocation = () => {
   return useMutation({
     mutationFn: (newLocation: AddLocationData) => addLocation(newLocation),
     onSuccess: () => {
-      // Invalidate and refetch the locations list
       queryClient.invalidateQueries({ queryKey: locationKeys.all })
     },
   })
@@ -71,7 +70,6 @@ export const useUpdateLocation = () => {
     mutationFn: ({ id, data }: { id: number | string; data: Partial<AddLocationData> }) =>
       updateLocation(id, data),
     onSuccess: (_, { id }) => {
-      // Invalidate both the list and the specific detail query
       queryClient.invalidateQueries({ queryKey: locationKeys.all })
       queryClient.invalidateQueries({ queryKey: locationKeys.detail(id) })
     },
