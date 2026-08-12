@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+// src/pages/Items.tsx
+import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
-import { ItemFormModal, ItemFilterBar, ItemsTable } from '../components'
-import { getItems, updateItemQuantity, getLocations } from '../api'
+import {
+  ItemFormModal,
+  ItemFilterBar,
+  ItemsTable,
+  ItemTransferModal,
+  ItemDetailsModal,
+} from '../components'
+import { getLocations, transferItem } from '../api'
 import { useAuth } from '../hooks/useAuth'
+import { useItems, useUpdateItemQuantity } from '../hooks/useItems'
 import type { Location, Item, ItemFilters } from '../types'
 
 const DEFAULT_FILTERS: ItemFilters = {
@@ -15,7 +24,6 @@ const DEFAULT_FILTERS: ItemFilters = {
   sortOrder: 'asc',
 }
 
-// Helper to get effective expiration date for dynamic filtering
 const getEffectiveExpiration = (item: Item): Date | null => {
   let openExpiry: Date | null = null
   if (item.openedOn && item.useWithinDays) {
@@ -32,41 +40,31 @@ const getEffectiveExpiration = (item: Item): Date | null => {
 }
 
 export default function Items() {
-  const [items, setItems] = useState<Item[] | null>(null)
-  const [locations, setLocations] = useState<Location[]>([])
-  const [filters, setFilters] = useState<ItemFilters>(DEFAULT_FILTERS)
-
   const { user } = useAuth()
   const currentUserId = user?.id
 
+  const [filters, setFilters] = useState<ItemFilters>(DEFAULT_FILTERS)
+
   // Modal & Selected Item States
-  // TODO: include
-  // const [/* selectedItem, */ setSelectedItem] = useState<Item | null>(null)
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [transferringItem, setTransferringItem] = useState<Item | null>(null)
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
-  const [loading, setLoading] = useState<boolean>(true)
 
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        const [fetchedItems, fetchedLocations] = await Promise.all([
-          getItems(),
-          getLocations ? getLocations() : Promise.resolve([]),
-        ])
-        setItems(fetchedItems)
-        setLocations(fetchedLocations)
-      } catch (error) {
-        console.error('Failed to load items:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // 🚀 Fetch Items using your custom useItems hook
+  const { data: items = [], isLoading: isLoadingItems } = useItems()
 
-    fetchData()
-  }, [])
+  // 🚀 Hook for Quantity Mutations (includes built-in optimistic UI updates)
+  const updateQuantityMutation = useUpdateItemQuantity()
 
-  // Map locations by ID for quick table lookup e.g. { 1: "Pantry" }
+  // Locations Query
+  const { data: locations = [], isLoading: isLoadingLocations } = useQuery({
+    queryKey: ['locations'],
+    queryFn: getLocations,
+  })
+
+  const loading = isLoadingItems || isLoadingLocations
+
+  // Map locations by ID for quick table lookup
   const locationsMap = useMemo(() => {
     return locations.reduce<Record<number, string>>((acc, loc) => {
       if (loc.id !== undefined) {
@@ -76,23 +74,27 @@ export default function Items() {
     }, {})
   }, [locations])
 
+  // Map locations into LocationOption[] format for ItemTransferModal
+  const locationOptions = useMemo(() => {
+    return locations
+      .filter((loc): loc is Location & { id: number } => loc.id !== undefined)
+      .map((loc) => ({ id: loc.id, label: loc.label }))
+  }, [locations])
+
   // Filter & Sort Items in memory
   const filteredItems = useMemo(() => {
     if (!items) return []
 
     return items
       .filter((item) => {
-        // Text Search filter (Label)
         if (filters.search && !item.label?.toLowerCase().includes(filters.search.toLowerCase())) {
           return false
         }
 
-        // Location filter
         if (filters.locationId !== null && item.locationId !== filters.locationId) {
           return false
         }
 
-        // Low Stock filter
         if (filters.stockStatus === 'low_stock') {
           const isLow =
             item.quantity != null &&
@@ -102,7 +104,6 @@ export default function Items() {
           if (!isLow) return false
         }
 
-        // Expiry filter
         if (filters.expiryStatus !== 'all') {
           const effExpiry = getEffectiveExpiration(item)
           if (!effExpiry) return false
@@ -119,7 +120,6 @@ export default function Items() {
         return true
       })
       .sort((a, b) => {
-        // Sorting logic
         const order = filters.sortOrder === 'asc' ? 1 : -1
 
         if (filters.sortBy === 'label') {
@@ -146,29 +146,25 @@ export default function Items() {
       })
   }, [items, filters])
 
-  // Optimistic quantity update handler
-  const handleUpdateQuantity = async (id: number, newQuantity: number) => {
-    // Instantly update UI (Optimistic Update)
-    setItems((prev) =>
-      prev ? prev.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)) : null
-    )
-
-    // Persist to API backend
-    try {
-      if (updateItemQuantity) {
-        await updateItemQuantity(id, newQuantity)
-      }
-    } catch (error) {
-      console.error('Failed to update quantity:', error)
-      // Revert/refetch if server sync fails
-      const freshItems = await getItems()
-      setItems(freshItems)
-    }
+  // 🚀 Trigger Optimistic Quantity Update Mutation
+  const handleUpdateQuantity = (id: number, newQuantity: number) => {
+    updateQuantityMutation.mutate({ id, quantity: newQuantity })
   }
 
-  // Handle selecting an item for details modal/drawer
-  const handleSelectItem = (/* item: Item */) => {
-    // setSelectedItem(item)
+  // Handle item transfer submit
+  const handleTransferSubmit = async (
+    itemId: number,
+    targetLocationId: number,
+    transferQty: number
+  ) => {
+    try {
+      if (transferItem) {
+        await transferItem(itemId, targetLocationId, transferQty)
+      }
+    } catch (error) {
+      console.error('Failed to transfer item:', error)
+      throw error
+    }
   }
 
   if (loading) {
@@ -186,15 +182,12 @@ export default function Items() {
           </p>
         </div>
 
-        {/* Primary Action Button */}
         <button
           type="button"
           onClick={() => setIsAddOpen(true)}
           className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded shadow-sm transition-colors flex items-center gap-1"
         >
-          <span>
-            <Plus />
-          </span>
+          <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Item</span>
           <span className="sm:hidden">Add</span>
         </button>
@@ -214,7 +207,8 @@ export default function Items() {
           items={filteredItems}
           locationsMap={locationsMap}
           onUpdateQuantity={handleUpdateQuantity}
-          onSelectItem={handleSelectItem}
+          onSelectItem={(item: Item) => setSelectedItem(item)}
+          onTransferItem={(item: Item) => setTransferringItem(item)}
         />
       )}
 
@@ -226,11 +220,29 @@ export default function Items() {
           initialBarcode={''}
           currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
-          onItemAdded={(newItem: Item) => {
-            setItems((prev) => (prev ? [newItem, ...prev] : [newItem]))
+          onItemAdded={() => {
+            setIsAddOpen(false) // Closes the modal after adding an item
           }}
         />
       )}
+
+      {/* Details Modal opens whenever selectedItem is not null */}
+      {selectedItem && (
+        <ItemDetailsModal
+          item={selectedItem}
+          isOpen={Boolean(selectedItem)}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+
+      {/* ITEM TRANSFER MODAL */}
+      <ItemTransferModal
+        isOpen={Boolean(transferringItem)}
+        item={transferringItem}
+        locations={locationOptions}
+        onClose={() => setTransferringItem(null)}
+        onTransfer={handleTransferSubmit}
+      />
     </div>
   )
 }

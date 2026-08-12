@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 
-import { AuthRoute, Items, Locations, Subscriptions, Users } from './routes/index.js'
+import { AuthRoute, Items, Locations, Stocks, Subscriptions, Users } from './routes/index.js'
 
 // express configuration
 const app = express()
@@ -14,6 +14,7 @@ app.use(cookieParser())
 app.use('/api/v1/auth', AuthRoute)
 app.use('/api/v1/items', Items)
 app.use('/api/v1/locations', Locations)
+app.use('/api/v1/stocks', Stocks)
 app.use('/api/v1/subscriptions', Subscriptions)
 app.use('/api/v1/users', Users)
 

@@ -1,5 +1,5 @@
 import prisma from '../../db.js'
-import { transferStock } from '../../controllers/stocks.controller.js'
+import { transferStockService as transferStock } from '../../controllers/stocks.controller.js'
 
 describe('Stock Transfer Service - transferStock', () => {
   let testUserId: number

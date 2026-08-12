@@ -2,9 +2,9 @@ import { Request, Response } from 'express'
 import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
-import { itemEvents } from '../events/index.js'
 import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { enrichItem, getCurrentUserId, parseId } from '../utils/index.js'
+import { broadcast } from '../index.js'
 
 /**
  * Standard Prisma include object for fetching catalog items with active stock batches
@@ -203,6 +203,8 @@ export const addItem = async (req: Request, res: Response): Promise<void> => {
       include: itemWithStocksInclude,
     })
 
+    broadcast({ type: 'item:added', id: newItem.id })
+
     res.status(201).json(enrichItem(newItem))
   } catch (error: unknown) {
     console.error('Error adding item:', error)
@@ -239,7 +241,7 @@ export const updateItemByID = async (
 
     const updateData: Prisma.ItemUpdateInput = {}
 
-    // 1. Update Catalog Level Fields
+    // Update Catalog Level Fields
     if (typeof label === 'string') updateData.label = label.trim()
     if (typeof barcode === 'string') updateData.barcode = barcode.trim()
     if (barcode === null) updateData.barcode = null
@@ -253,7 +255,7 @@ export const updateItemByID = async (
       updateData.user = userId !== null ? { connect: { id: Number(userId) } } : { disconnect: true }
     }
 
-    // 2. Perform DB Transaction to update Item Catalog and target ItemStock batch
+    // Perform DB Transaction to update Item Catalog and target ItemStock batch
     const updatedItem = await prisma.$transaction(async (tx) => {
       // Update catalog entry
       await tx.item.update({
@@ -317,7 +319,7 @@ export const updateItemByID = async (
     })
 
     // Fire background event
-    itemEvents.emit('item:updated', updatedItem)
+    broadcast({ type: 'item:updated', id: itemId })
 
     res.status(200).json(enrichItem(updatedItem))
   } catch (error: unknown) {
@@ -354,6 +356,8 @@ export const deleteItemByID = async (
       }),
     ])
 
+    broadcast({ type: 'item:deleted', id: itemId })
+
     res.status(204).send()
   } catch (error: unknown) {
     console.error('Error soft-deleting item:', error)
@@ -378,13 +382,13 @@ export const restoreItemByID = async (
     const { quantity, locationId, expirationDate } = req.body
 
     const restoredItem = await prisma.$transaction(async (tx) => {
-      // 1. Un-archive catalog item
+      // Un-archive catalog item
       await tx.item.update({
         where: { id: itemId },
         data: { deletedAt: null },
       })
 
-      // 2. Create a fresh stock batch for restored item
+      // Create a fresh stock batch for restored item
       await tx.itemStock.create({
         data: {
           itemId,
@@ -399,6 +403,8 @@ export const restoreItemByID = async (
         include: itemWithStocksInclude,
       })
     })
+
+    broadcast({ type: 'item:restored', id: restoredItem.id })
 
     res.status(200).json(enrichItem(restoredItem))
   } catch (error: unknown) {

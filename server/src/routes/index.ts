@@ -1,5 +1,6 @@
 export { default as AuthRoute } from './auth/auth.route.js'
 export { default as Items } from './items/items.route.js'
 export { default as Locations } from './locations/locations.route.js'
+export { default as Stocks } from './stocks/stocks.route.js'
 export { default as Subscriptions } from './subscriptions/subscriptions.route.js'
 export { default as Users } from './users/users.route.js'

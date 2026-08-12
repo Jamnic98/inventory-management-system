@@ -4,16 +4,14 @@ import {
   addItem,
   addStockBatch,
   deleteItemById,
-  deleteStockBatch,
   getArchivedItems,
   getItemByBarcode,
   getItemById,
   getItems,
   restoreItemById,
   updateItemQuantity,
-  updateStockBatch,
 } from '../api/items'
-import type { AddItemData, AddStockBatchData, Item, ItemStock } from '../types'
+import type { AddItemData, AddStockBatchData, Item } from '../types'
 
 // Central Query Keys
 export const itemKeys = {
@@ -110,15 +108,22 @@ export const useUpdateItemQuantity = () => {
           previousItems.map((item) => {
             if (String(item.id) !== String(id)) return item
 
-            // Update primary stock batch in optimistic cache if present
             const updatedStocks = [...(item.stocks || [])]
+
             if (updatedStocks.length > 0) {
-              updatedStocks[0] = { ...updatedStocks[0], quantity }
+              // Calculate difference (delta) between new total and current total
+              const delta = quantity - (item.quantity ?? 0)
+              const primaryQty = updatedStocks[0].quantity ?? 0
+
+              updatedStocks[0] = {
+                ...updatedStocks[0],
+                quantity: Math.max(0, primaryQty + delta),
+              }
             }
 
             return {
               ...item,
-              quantity, // Aggregated total quantity
+              quantity, // Total aggregated quantity
               stocks: updatedStocks,
             }
           })
@@ -183,35 +188,6 @@ export const useAddStockBatch = () => {
   return useMutation({
     mutationFn: ({ itemId, batch }: { itemId: number | string; batch: AddStockBatchData }) =>
       addStockBatch(itemId, batch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: itemKeys.all })
-    },
-  })
-}
-
-/**
- * Update a specific stock batch (e.g., change expiration date or quantity of batch #2)
- */
-export const useUpdateStockBatch = () => {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ stockId, data }: { stockId: number | string; data: Partial<ItemStock> }) =>
-      updateStockBatch(stockId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: itemKeys.all })
-    },
-  })
-}
-
-/**
- * Delete or consume a specific stock batch without deleting the item catalog entry
- */
-export const useDeleteStockBatch = () => {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (stockId: number | string) => deleteStockBatch(stockId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all })
     },

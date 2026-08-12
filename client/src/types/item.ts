@@ -96,3 +96,8 @@ export interface ItemFilters {
   sortBy: 'label' | 'expirationDate' | 'quantity' | 'createdAt'
   sortOrder: 'asc' | 'desc'
 }
+
+export interface TransferItemPayload {
+  targetLocationId: number
+  quantity: number
+}

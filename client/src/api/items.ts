@@ -1,5 +1,5 @@
 import { apiClient, isAPIError } from './client'
-import type { AddItemData, AddStockBatchData, Item, ItemStock, UpdateItemData } from '../types'
+import type { AddItemData, AddStockBatchData, Item, UpdateItemData } from '../types'
 
 // -----------------------------------------------------------------------------
 // Catalog / Item Collection API Calls
@@ -61,10 +61,6 @@ export const getItemByBarcode = async (barcode: string): Promise<Item | null> =>
   }
 }
 
-// -----------------------------------------------------------------------------
-// Granular Stock Batch API Calls
-// -----------------------------------------------------------------------------
-
 /**
  * Add a new stock batch to an existing catalog item
  */
@@ -73,21 +69,4 @@ export const addStockBatch = async (
   batch: AddStockBatchData
 ): Promise<Item> => {
   return apiClient.post<Item>(`/items/${itemId}/stocks`, batch)
-}
-
-/**
- * Update specific properties of a single stock batch
- */
-export const updateStockBatch = async (
-  stockId: number | string,
-  data: Partial<ItemStock>
-): Promise<ItemStock> => {
-  return apiClient.patch<ItemStock>(`/stocks/${stockId}`, data)
-}
-
-/**
- * Delete / consume a specific stock batch without removing the whole catalog item
- */
-export const deleteStockBatch = async (stockId: number | string): Promise<void> => {
-  await apiClient.delete(`/stocks/${stockId}`)
 }

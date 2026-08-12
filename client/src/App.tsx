@@ -2,8 +2,11 @@ import { Route, Routes } from 'react-router-dom'
 
 import { MainLayout } from './layouts'
 import { Dashboard, Items, Locations, LoginVerify, Profile, Settings } from './pages'
+import { useInventoryWebSocket } from './hooks/useInventoryWebSocket'
 
 export default function App() {
+  useInventoryWebSocket()
+
   return (
     <Routes>
       {/* Standalone Auth Route (No SideBar / App Frame) */}

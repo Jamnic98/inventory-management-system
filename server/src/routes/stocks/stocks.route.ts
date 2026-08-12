@@ -1,10 +1,10 @@
 import { Router } from 'express'
 
-import { transferStock } from '../../controllers/stocks.controller.js'
+import { transferStockService as transferStock } from '../../services/stocks.service.js'
 
 const router = Router()
 
-// Stock-specific routes
-router.post('/transfer', transferStock)
+// Handles POST /api/v1/stocks/:id/transfer
+router.post('/:id/transfer', transferStock)
 
 export default router

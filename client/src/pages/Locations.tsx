@@ -50,7 +50,7 @@ export default function Locations() {
     [locations, selectedId]
   )
 
-  // Direct parent location (if any)
+  // Direct parent location
   const parentLocation = useMemo(() => {
     if (!selectedLocation?.parentId) return null
     return locations.find((loc) => String(loc.id) === String(selectedLocation.parentId)) || null

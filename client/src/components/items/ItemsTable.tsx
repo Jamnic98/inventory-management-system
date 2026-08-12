@@ -1,3 +1,4 @@
+import { useState, Fragment } from 'react'
 import { type Item } from '../../types'
 
 interface ItemsTableProps {
@@ -5,7 +6,8 @@ interface ItemsTableProps {
   locationsMap?: Record<number, string> // Maps locationId to location name e.g. { 1: "Pantry" }
   onUpdateQuantity: (id: number, newQuantity: number) => void
   onSelectItem: (item: Item) => void
-  onRestore?: (id: number) => void // Optional handler for archived items
+  onTransferItem?: (item: Item) => void
+  onRestore?: (id: number) => void
 }
 
 // Helper to calculate effective expiration date
@@ -30,7 +32,6 @@ const getStatus = (item: Item) => {
     return { label: 'Archived', color: 'bg-gray-100 text-gray-600 border border-gray-300' }
   }
 
-  // Use backend computed flag or calculate diff
   if (item.isOpenedExpired) {
     return { label: 'Opened Expired', color: 'bg-red-100 text-red-800' }
   }
@@ -44,9 +45,8 @@ const getStatus = (item: Item) => {
     if (diffDays <= 3) return { label: `${diffDays}d left`, color: 'bg-amber-100 text-amber-800' }
   }
 
-  // Use backend computed boolean `isLowStock`
   if (item.isLowStock) {
-    return { label: 'Low Stock', color: 'bg-yellow-100 text-yellow-800' }
+    return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
   }
 
   return { label: 'OK', color: 'bg-green-100 text-green-800' }
@@ -57,8 +57,16 @@ export default function ItemsTable({
   locationsMap = {},
   onUpdateQuantity,
   onSelectItem,
-  onRestore,
 }: ItemsTableProps) {
+  const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({})
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
   if (items.length === 0) {
     return (
       <div className="w-full text-center py-8 text-gray-500 border rounded bg-white text-sm">
@@ -72,11 +80,12 @@ export default function ItemsTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 border-b text-gray-700">
           <tr>
+            <th className="p-2 w-8 text-center"></th> {/* Expand Toggle Column */}
             <th className="p-2">Item</th>
             <th className="p-2 hidden sm:table-cell">Location</th>
-            <th className="p-2 text-center">Qty</th>
+            <th className="p-2 text-center hidden md:table-cell">Batches</th>
+            <th className="p-2 text-center">Total Qty</th>
             <th className="p-2">Status</th>
-            <th className="p-2 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -85,95 +94,130 @@ export default function ItemsTable({
 
             const status = getStatus(item)
             const isArchived = Boolean(item.deletedAt)
-            // Use backend computed boolean or fallback check
+            const isExpanded = Boolean(expandedIds[item.id])
+            const stocks = item.stocks || []
+            const canExpand = stocks.length > 1 // Only enable expandable view if > 1 batch
+
             const isLowStock =
               item.isLowStock ??
               (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)
 
+            // Resolve location name
+            const primaryLocationId = item.locationId || stocks[0]?.locationId
+            const locationDisplay =
+              stocks.length > 1
+                ? 'Multiple Locations'
+                : primaryLocationId
+                  ? locationsMap[primaryLocationId] || `Loc #${primaryLocationId}`
+                  : '-'
+
             return (
-              <tr
-                key={item.id}
-                className={`hover:bg-gray-50/80 transition-colors ${isArchived ? 'opacity-75 bg-gray-50/50' : ''}`}
-              >
-                {/* Item Label & Mobile Subtitle */}
-                <td className="p-2 font-medium text-gray-900">
-                  <div className="flex items-center gap-1.5">
-                    <span>{item.label || 'Unnamed Item'}</span>
-                    {item.userId !== null && item.userId !== undefined && (
-                      <span
-                        className="px-1.5 py-0.2 text-[10px] bg-purple-50 text-purple-700 rounded border border-purple-200"
-                        title="Personal Item"
+              <Fragment key={item.id}>
+                {/* Main Item Row */}
+                <tr
+                  className={`hover:bg-gray-50/80 transition-colors ${
+                    isArchived ? 'opacity-75 bg-gray-50/50' : ''
+                  } ${isExpanded ? 'bg-blue-50/20' : ''}`}
+                >
+                  {/* Expand Toggle Column (Only for > 1 batch) */}
+                  <td className="p-2 text-center">
+                    {canExpand ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(item.id!)}
+                        className="text-gray-500 hover:text-gray-800 p-1 rounded focus:outline-none text-xs"
+                        title={isExpanded ? 'Collapse batches' : 'Expand batches'}
                       >
-                        Personal
+                        {isExpanded ? '▼' : '▶'}
+                      </button>
+                    ) : null}
+                  </td>
+
+                  {/* Item Label & Personal Badge */}
+                  <td className="p-2 font-medium text-gray-900">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={canExpand ? 'cursor-pointer hover:underline' : ''}
+                        onClick={() => canExpand && toggleExpand(item.id!)}
+                      >
+                        {item.label || 'Unnamed Item'}
                       </span>
-                    )}
-                  </div>
-                  {/* Location fallback for mobile screens */}
-                  {item.locationId && (
+                      {item.userId !== null && item.userId !== undefined && (
+                        <span
+                          className="px-1.5 py-0.2 text-[10px] bg-purple-50 text-purple-700 rounded border border-purple-200"
+                          title="Personal Item"
+                        >
+                          Personal
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Mobile Fallback: Location */}
                     <span className="text-xs text-gray-500 sm:hidden block mt-0.5">
-                      {locationsMap[item.locationId] || `Loc #${item.locationId}`}
+                      {locationDisplay}
                     </span>
-                  )}
-                </td>
+                  </td>
 
-                {/* Location (Tablet/Desktop) */}
-                <td className="p-2 hidden sm:table-cell text-gray-600">
-                  {item.locationId
-                    ? locationsMap[item.locationId] || `Loc #${item.locationId}`
-                    : '-'}
-                </td>
+                  {/* Location (Tablet / Desktop) */}
+                  <td className="p-2 hidden sm:table-cell text-gray-600">{locationDisplay}</td>
 
-                {/* Inline Quantity Controls */}
-                <td className="p-2">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                      onClick={() =>
-                        onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
-                      }
-                    >
-                      -
-                    </button>
+                  {/* Dedicated Batches Count Column */}
+                  <td className="p-2 text-center hidden md:table-cell">
                     <span
-                      className={`min-w-6 text-center font-bold ${
-                        isLowStock ? 'text-red-600' : 'text-gray-800'
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        stocks.length > 1
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {item.quantity ?? 0}
+                      {stocks.length}
                     </span>
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                      onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Dynamic Status Badge */}
-                <td className="p-2">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded font-semibold ${status.color} text-xs`}
-                  >
-                    {status.label}
-                  </span>
-                </td>
+                  {/* Inline Quantity Controls */}
+                  <td className="p-2">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        disabled={isArchived}
+                        className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() =>
+                          onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
+                        }
+                      >
+                        -
+                      </button>
+                      <span
+                        className={`min-w-6 text-center font-bold ${
+                          isLowStock ? 'text-red-600' : 'text-gray-800'
+                        }`}
+                      >
+                        {item.quantity ?? 0}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isArchived}
+                        className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
 
-                {/* Actions / Details */}
-                <td className="p-2 text-right space-x-2">
-                  {isArchived && onRestore ? (
-                    <button
-                      type="button"
-                      className="text-xs text-green-700 font-medium hover:underline"
-                      onClick={() => onRestore(item.id!)}
+                  {/* Dynamic Status Badge */}
+                  <td className="p-2">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded font-semibold ${status.color} text-xs`}
                     >
-                      Restore
-                    </button>
-                  ) : (
+                      {status.label}
+                    </span>
+                  </td>
+
+                  {/* Actions / Details */}
+                  {/* TODO: add item actions */}
+                  <td className="p-2 text-right space-x-2">
+                    {' '}
                     <button
                       type="button"
                       className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
@@ -181,9 +225,86 @@ export default function ItemsTable({
                     >
                       Details
                     </button>
-                  )}
-                </td>
-              </tr>
+                  </td>
+                  {/* <td className="p-2 text-right space-x-2">
+                    {isArchived && onRestore ? (
+                      <button
+                        type="button"
+                        className="text-xs text-green-700 font-medium hover:underline"
+                        onClick={() => onRestore(item.id!)}
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
+                        onClick={() => onSelectItem(item)}
+                      >
+                        Details
+                      </button>
+                    )}
+                  </td>*/}
+                </tr>
+
+                {/* Sub-Table View (Only renders if canExpand === true and isExpanded === true) */}
+                {canExpand && isExpanded && (
+                  <tr className="bg-slate-50/80 border-b">
+                    <td colSpan={6} className="p-3 pl-10">
+                      <div className="bg-white border rounded shadow-inner overflow-hidden">
+                        <div className="px-3 py-1.5 bg-gray-100 text-xs font-semibold text-gray-600 border-b flex justify-between items-center">
+                          <span>Stock Batches Breakdown</span>
+                          <span className="text-xs font-normal text-gray-500">
+                            Total Batches: {stocks.length}
+                          </span>
+                        </div>
+
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-gray-50/50 text-gray-500 border-b">
+                            <tr>
+                              <th className="p-2">Batch ID</th>
+                              <th className="p-2">Location</th>
+                              <th className="p-2 text-center">Quantity</th>
+                              <th className="p-2">Expiration Date</th>
+                              <th className="p-2">Opened Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {stocks.map((stock) => {
+                              const locName = stock.location?.label
+                                ? stock.location.label
+                                : stock.locationId
+                                  ? locationsMap[stock.locationId] ||
+                                    `Location #${stock.locationId}`
+                                  : 'Unassigned'
+
+                              const expDate = stock.expirationDate
+                                ? new Date(stock.expirationDate).toLocaleDateString()
+                                : 'N/A'
+
+                              const openedDate = stock.openedOn
+                                ? new Date(stock.openedOn).toLocaleDateString()
+                                : 'Unopened'
+
+                              return (
+                                <tr key={stock.id} className="hover:bg-blue-50/30">
+                                  <td className="p-2 font-mono text-gray-600">#{stock.id}</td>
+                                  <td className="p-2 text-gray-800 font-medium">{locName}</td>
+                                  <td className="p-2 text-center font-bold text-gray-700">
+                                    {stock.quantity}
+                                  </td>
+                                  <td className="p-2 text-gray-600">{expDate}</td>
+                                  <td className="p-2 text-gray-600">{openedDate}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
         </tbody>

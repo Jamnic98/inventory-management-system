@@ -99,7 +99,7 @@ export const generateMagicLink = async (
   }
 }
 
-// GET /api/v1/auth/me - Verify current cookie session
+// GET /api/v1/auth/me - Verify current session
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   try {
     // Get userId from token payload attached by auth middleware
