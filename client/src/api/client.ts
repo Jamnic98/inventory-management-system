@@ -75,8 +75,7 @@ axiosInstance.interceptors.response.use(
 
     // Auto-clear invalid token on 401 Unauthorized
     if (status === 401) {
-      // TODO: review
-      // localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_KEY)
     }
 
     throw createAPIError(status, errorMessage, errorData)

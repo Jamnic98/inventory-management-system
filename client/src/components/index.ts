@@ -1,6 +1,7 @@
 export * from './items'
 export * from './locations'
 
+export { default as AlertBanner, type AlertType } from './AlertBanner'
 export { default as BarcodeScanner } from './BarcodeScanner'
 export { default as Select, type SelectOption } from './Select'
 export { default as SideBar } from './SideBar'

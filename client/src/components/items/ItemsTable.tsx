@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react'
+
 import { type Item } from '../../types'
 
 interface ItemsTableProps {
@@ -57,6 +58,7 @@ export default function ItemsTable({
   locationsMap = {},
   onUpdateQuantity,
   onSelectItem,
+  onRestore,
 }: ItemsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({})
 
@@ -80,7 +82,7 @@ export default function ItemsTable({
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 border-b text-gray-700">
           <tr>
-            <th className="p-2 w-8 text-center"></th> {/* Expand Toggle Column */}
+            <th className="p-2 w-8 text-center" />
             <th className="p-2">Item</th>
             <th className="p-2 hidden sm:table-cell">Location</th>
             <th className="p-2 text-center hidden md:table-cell">Batches</th>
@@ -137,8 +139,8 @@ export default function ItemsTable({
                   <td className="p-2 font-medium text-gray-900">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={canExpand ? 'cursor-pointer hover:underline' : ''}
-                        onClick={() => canExpand && toggleExpand(item.id!)}
+                        className="cursor-pointer hover:underline text-blue-600 font-semibold"
+                        onClick={() => onSelectItem(item)}
                       >
                         {item.label || 'Unnamed Item'}
                       </span>
@@ -214,20 +216,9 @@ export default function ItemsTable({
                     </span>
                   </td>
 
-                  {/* Actions / Details */}
-                  {/* TODO: add item actions */}
-                  <td className="p-2 text-right space-x-2">
-                    {' '}
-                    <button
-                      type="button"
-                      className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
-                      onClick={() => onSelectItem(item)}
-                    >
-                      Details
-                    </button>
-                  </td>
-                  {/* <td className="p-2 text-right space-x-2">
-                    {isArchived && onRestore ? (
+                  {/* Actions Column */}
+                  {isArchived && onRestore ? (
+                    <td className="p-2 text-right space-x-2">
                       <button
                         type="button"
                         className="text-xs text-green-700 font-medium hover:underline"
@@ -235,22 +226,14 @@ export default function ItemsTable({
                       >
                         Restore
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
-                        onClick={() => onSelectItem(item)}
-                      >
-                        Details
-                      </button>
-                    )}
-                  </td>*/}
+                    </td>
+                  ) : null}
                 </tr>
 
                 {/* Sub-Table View (Only renders if canExpand === true and isExpanded === true) */}
                 {canExpand && isExpanded && (
                   <tr className="bg-slate-50/80 border-b">
-                    <td colSpan={6} className="p-3 pl-10">
+                    <td colSpan={7} className="p-3 pl-10">
                       <div className="bg-white border rounded shadow-inner overflow-hidden">
                         <div className="px-3 py-1.5 bg-gray-100 text-xs font-semibold text-gray-600 border-b flex justify-between items-center">
                           <span>Stock Batches Breakdown</span>

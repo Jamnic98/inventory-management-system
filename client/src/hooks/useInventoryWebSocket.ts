@@ -1,4 +1,3 @@
-// src/hooks/useInventoryWebSocket.ts
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -21,7 +20,6 @@ export function useInventoryWebSocket() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('📡 WS Payload Received in Browser:', data)
 
         if (typeof data.type === 'string' && data.type.startsWith('item:')) {
           console.log('🔄 Refetching items query cache...')

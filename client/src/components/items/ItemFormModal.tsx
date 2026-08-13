@@ -172,10 +172,7 @@ export default function ItemFormModal({
           {showScanner && (
             <div className="relative pt-2 mt-2 border-t border-slate-200 overflow-hidden rounded-lg">
               <div className="rounded-lg overflow-hidden border border-slate-300 shadow-inner">
-                <BarcodeScanner
-                  onScanSuccess={handleScanSuccess}
-                  onScanFailure={() => console.error('Failed to scan barcode')}
-                />
+                <BarcodeScanner onScanSuccess={handleScanSuccess} />
               </div>
             </div>
           )}

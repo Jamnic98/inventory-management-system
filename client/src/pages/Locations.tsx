@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Pen, Trash2 } from 'lucide-react'
 
 import { LocationFormModal, LocationSidebar } from '../components/locations'
-import { useItems, useLocations, useDeleteLocation } from '../hooks'
+import { useItems, useLocations, useDeleteLocation, useAlert } from '../hooks'
 import { buildLocationTree } from '../utils/locationTree'
 import { type Location } from '../types/location'
 
 export default function Locations() {
+  const alert = useAlert()
+  const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedId = searchParams.get('selectedId')
-  const [searchQuery, setSearchQuery] = useState('')
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -123,7 +124,7 @@ export default function Locations() {
             err instanceof Error && err.message
               ? err.message
               : 'Failed to delete location. Make sure it has no sub-locations or items first.'
-          alert(errorMessage)
+          alert.error(errorMessage)
         },
       })
     }
