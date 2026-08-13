@@ -65,6 +65,8 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+    environment:
+      - IS_DOCKER=true
     networks:
       - app-network
     depends_on:
@@ -75,8 +77,10 @@ services:
     image: nginx:1.27.5-alpine-slim
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
     networks:
       - app-network
     depends_on:
