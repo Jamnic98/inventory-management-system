@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client.js'
 import prisma from '../db.js'
 import handlePrismaError from '../middleware/prismaErrorHandler.js'
 import { getCurrentUserId, parseId } from '../utils/index.js'
+import { broadcast } from '../index.js'
 
 // GET /api/v1/locations - Retrieve locations (shared + personal)
 export const getLocations = async (req: Request, res: Response): Promise<void> => {
@@ -148,6 +149,8 @@ export const addLocation = async (req: Request, res: Response): Promise<void> =>
       return location
     })
 
+    broadcast({ type: 'location:added', id: newLocation.id })
+
     res.status(201).json(newLocation)
   } catch (error: unknown) {
     console.error('Error creating location:', error)
@@ -209,6 +212,8 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
       },
     })
 
+    broadcast({ type: 'location:updated', id: locationId })
+
     res.status(200).json(updatedLocation)
   } catch (error: unknown) {
     console.error('Error updating location:', error)
@@ -269,6 +274,8 @@ export const deleteLocationById = async (req: Request, res: Response): Promise<v
     await prisma.location.delete({
       where: { id },
     })
+
+    broadcast({ type: 'location:deleted', id: location.id })
 
     res.status(204).send()
   } catch (error: unknown) {
