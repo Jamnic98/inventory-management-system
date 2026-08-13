@@ -1,4 +1,7 @@
 import { useMemo } from 'react'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+
+import Select, { SelectOption } from './Select' // Adjust import path as needed
 
 interface PaginationProps {
   currentPage: number
@@ -24,7 +27,11 @@ export default function Pagination({
   const startItem = (currentPage - 1) * pageSize + 1
   const endItem = Math.min(currentPage * pageSize, totalItems)
 
-  // Generate page numbers array (with simple bounds or ellipsis for large page counts)
+  const pageSizeSelectOptions: SelectOption<number>[] = useMemo(
+    () => pageSizeOptions.map((option) => ({ value: option, label: String(option) })),
+    [pageSizeOptions]
+  )
+
   const pageNumbers = useMemo(() => {
     const pages: (number | string)[] = []
     const maxVisible = 5
@@ -50,77 +57,99 @@ export default function Pagination({
   }, [currentPage, totalPages])
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t text-xs text-gray-600 rounded-b">
-      {/* Left side: Range stats & Page size selector */}
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border-t border-slate-200 text-xs text-slate-500 rounded-b-xl">
+      {/* Left side: Results Count & Per Page Selector */}
       <div className="flex items-center gap-4">
-        <span>
-          Showing <strong className="font-semibold text-gray-900">{startItem}</strong> to{' '}
-          <strong className="font-semibold text-gray-900">{endItem}</strong> of{' '}
-          <strong className="font-semibold text-gray-900">{totalItems}</strong> results
-        </span>
+        <p className="whitespace-nowrap">
+          Showing{' '}
+          <span className="font-semibold text-slate-800">
+            {startItem}–{endItem}
+          </span>{' '}
+          of <span className="font-semibold text-slate-800">{totalItems}</span>
+        </p>
 
         {onPageSizeChange && (
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="page-size-select" className="text-gray-500">
-              Per page:
-            </label>
-            <select
-              id="page-size-select"
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+            <span className="text-slate-400 whitespace-nowrap">Per page</span>
+            <Select<number>
+              options={pageSizeSelectOptions}
               value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="border rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-            >
-              {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+              onChange={onPageSizeChange}
+              direction="up"
+              className="w-18"
+            />
           </div>
         )}
       </div>
 
-      {/* Right side: Page Navigation Buttons */}
+      {/* Right side: Icon Controls */}
       <div className="flex items-center gap-1">
+        {/* First Page */}
+        <button
+          type="button"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          aria-label="First Page"
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </button>
+
+        {/* Previous Page */}
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-2.5 py-1 border rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium"
+          aria-label="Previous Page"
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          Previous
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-1">
+        {/* Page Number Buttons */}
+        <div className="flex items-center gap-1 px-1">
           {pageNumbers.map((page, idx) =>
             typeof page === 'number' ? (
               <button
                 key={page}
                 type="button"
                 onClick={() => onPageChange(page)}
-                className={`px-2.5 py-1 border rounded text-xs font-medium transition-colors ${
+                className={`min-w-[2rem] h-8 px-2 rounded-lg text-xs font-medium transition-all ${
                   currentPage === page
-                    ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                    : 'bg-white hover:bg-gray-50 text-gray-700'
+                    ? 'bg-blue-600 text-white shadow-2xs font-semibold'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 {page}
               </button>
             ) : (
-              <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">
+              <span key={`ellipsis-${idx}`} className="px-1 text-slate-300 select-none">
                 {page}
               </span>
             )
           )}
         </div>
 
+        {/* Next Page */}
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || totalPages === 0}
-          className="px-2.5 py-1 border rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium"
+          aria-label="Next Page"
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          Next
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        {/* Last Page */}
+        <button
+          type="button"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages || totalPages === 0}
+          aria-label="Last Page"
+          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronsRight className="w-4 h-4" />
         </button>
       </div>
     </div>

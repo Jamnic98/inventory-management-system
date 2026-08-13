@@ -94,7 +94,7 @@ export default function AlertProvider({ children }: { children: React.ReactNode 
       {/* FLOATING TOAST CONTAINER */}
       <div
         aria-live="polite"
-        className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+        className="fixed top-5 left-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
       >
         {alerts.map((alert) => (
           <div

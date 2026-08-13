@@ -2,6 +2,7 @@ import { useState, Fragment } from 'react'
 
 import { type Item } from '../../types'
 import { Pagination } from '..'
+import { Minus, Plus } from 'lucide-react'
 
 interface ItemsTableProps {
   items: Item[]
@@ -196,12 +197,12 @@ export default function ItemsTable({
                         <button
                           type="button"
                           disabled={isArchived}
-                          className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-1 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                           onClick={() =>
                             onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
                           }
                         >
-                          -
+                          <Minus size={14} />
                         </button>
                         <span
                           className={`min-w-6 text-center font-bold ${
@@ -213,10 +214,10 @@ export default function ItemsTable({
                         <button
                           type="button"
                           disabled={isArchived}
-                          className="px-2 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-1 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                           onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
                         >
-                          +
+                          <Plus size={14} />
                         </button>
                       </div>
                     </td>

@@ -34,14 +34,15 @@ export default function Modal({
       onClick={onClose} // Backdrop click to close
     >
       <div
-        className={`w-full ${maxWidthClass} bg-white rounded-t-lg sm:rounded-lg p-4 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl`}
+        className={`w-full ${maxWidthClass} bg-white rounded-t-xl sm:rounded-xl p-4 flex flex-col max-h-[85vh] sm:max-h-[90vh] shadow-xl overflow-hidden`}
         onClick={(e) => e.stopPropagation()} // Prevent clicks inside modal from closing backdrop
       >
-        <div className="flex justify-between items-center border-b pb-2">
+        {/* Header */}
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-3 shrink-0">
           {title ? <h2 className="font-bold text-lg text-gray-900">{title}</h2> : <div />}
           <button
             type="button"
-            className="text-gray-400 hover:text-black text-sm font-semibold p-1 transition-colors"
+            className="text-gray-400 hover:text-black text-sm font-semibold p-1 transition-colors rounded-lg"
             onClick={onClose}
             aria-label="Close modal"
           >
@@ -49,8 +50,8 @@ export default function Modal({
           </button>
         </div>
 
-        {/* Content Body */}
-        {children}
+        {/* Content Body - flex-1 min-h-0 allows nested children to flex scroll properly */}
+        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
       </div>
     </div>
   )
