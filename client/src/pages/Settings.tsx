@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Bell, Clock, AlertTriangle, Mail, Smartphone, MapPin, Save, Loader2 } from 'lucide-react'
 
-import {} from '../hooks/useSettings'
-import { useAuth, useSettings, useUpdateSettings } from '../hooks'
+import { useAuth, useSettings, useUpdateSettings, useAlert } from '../hooks'
 import type { UserSettings } from '../api/settings'
 
 export default function Settings() {
+  const alert = useAlert()
   const { user } = useAuth()
   const userId = user?.id
 
@@ -21,8 +21,8 @@ export default function Settings() {
     pushNotifications: false,
   })
 
-  // TODO: reimplement with alert banner
-  const [, /* savedSuccess */ setSavedSuccess] = useState(false)
+  // Check if form values differ from initial settings
+  const isDirty = settings ? JSON.stringify(form) !== JSON.stringify(settings) : false
 
   // Populate state when settings finish loading
   useEffect(() => {
@@ -39,22 +39,32 @@ export default function Settings() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: React.SubmitEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!userId) {
       console.error('Missing userId, cannot save settings.')
+      alert.error('User not authenticated.')
       return
     }
 
-    // Pass the payload directly
+    // Only save if changes were made
+    if (!isDirty) {
+      alert.info('No changes were made to settings.')
+      return
+    }
+
     updateSettings(form, {
       onSuccess: () => {
-        setSavedSuccess(true)
-        setTimeout(() => setSavedSuccess(false), 3000)
+        alert.success('Settings saved successfully!')
       },
       onError: (err) => {
         console.error('Failed to save settings:', err)
+        const errorMessage =
+          err instanceof Error && err.message
+            ? err.message
+            : 'Failed to save settings. Please try again.'
+        alert.error(errorMessage)
       },
     })
   }
@@ -95,14 +105,6 @@ export default function Settings() {
             Manage your alerts, notification channels, and household defaults.
           </p>
         </div>
-
-        {/* TODO: replace with alert banner */}
-        {/*         {savedSuccess && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span className="font-medium">Settings saved!</span>
-          </div>
-        )} */}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -244,8 +246,8 @@ export default function Settings() {
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={isPending}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-xs transition-all flex items-center gap-2 disabled:opacity-50"
+            disabled={isPending || !isDirty}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-xs transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? (
               <>
