@@ -24,7 +24,12 @@ const itemWithStocksInclude = {
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
-    const { search, locationId } = req.query
+    const { search, locationId, page: reqPage, limit: reqLimit } = req.query
+
+    // Sanitize pagination parameters
+    const page = Math.max(1, parseInt(reqPage as string, 10) || 1)
+    const limit = Math.max(1, Math.min(100, parseInt(reqLimit as string, 10) || 10))
+    const skip = (page - 1) * limit
 
     // Base ownership & active catalog filters
     const conditions: Prisma.ItemWhereInput[] = [
@@ -65,13 +70,33 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const items = await prisma.item.findMany({
-      where: { AND: conditions },
-      include: itemWithStocksInclude,
-      orderBy: { createdAt: 'desc' },
-    })
+    const where: Prisma.ItemWhereInput = { AND: conditions }
 
-    res.status(200).json(items.map(enrichItem))
+    // Execute paginated findMany and total count concurrently
+    const [rawItems, totalItems] = await Promise.all([
+      prisma.item.findMany({
+        where,
+        include: itemWithStocksInclude,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.item.count({ where }),
+    ])
+
+    const totalPages = Math.ceil(totalItems / limit)
+
+    res.status(200).json({
+      data: rawItems.map(enrichItem),
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    })
   } catch (error: unknown) {
     console.error('Error fetching items:', error)
     handlePrismaError(error, res, 'Failed to retrieve items')

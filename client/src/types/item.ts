@@ -101,3 +101,10 @@ export interface TransferItemPayload {
   targetLocationId: number
   quantity: number
 }
+
+export interface GetItemsParams {
+  page?: number
+  limit?: number
+  search?: string
+  locationId?: number
+}

@@ -11,11 +11,18 @@ import {
   restoreItemById,
   updateItemQuantity,
 } from '../api/items'
-import type { AddItemData, AddStockBatchData, Item } from '../types'
+import type {
+  AddItemData,
+  AddStockBatchData,
+  GetItemsParams,
+  Item,
+  PaginatedResponse,
+} from '../types'
 
 // Central Query Keys
 export const itemKeys = {
   all: ['items'] as const,
+  list: (params?: GetItemsParams) => [...itemKeys.lists(), params] as const,
   lists: () => [...itemKeys.all, 'list'] as const,
   archived: () => [...itemKeys.all, 'archived'] as const,
   detail: (id: number | string) => [...itemKeys.all, 'detail', String(id)] as const,
@@ -29,10 +36,10 @@ export const itemKeys = {
 /**
  * Fetch all items
  */
-export const useItems = () => {
-  return useQuery<Item[]>({
-    queryKey: itemKeys.lists(),
-    queryFn: getItems,
+export const useItems = (params?: GetItemsParams) => {
+  return useQuery<PaginatedResponse<Item>>({
+    queryKey: itemKeys.list(params),
+    queryFn: () => getItems(params),
   })
 }
 

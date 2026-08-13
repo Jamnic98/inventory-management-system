@@ -1,4 +1,3 @@
-// src/pages/Items.tsx
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -43,6 +42,9 @@ export default function Items() {
   const { user } = useAuth()
   const currentUserId = user?.id
 
+  // Pagination & Filter State
+  const [page, setPage] = useState<number>(1)
+  const [pageSize, setPageSize] = useState<number>(10)
   const [filters, setFilters] = useState<ItemFilters>(DEFAULT_FILTERS)
 
   // Modal & Selected Item States
@@ -50,10 +52,18 @@ export default function Items() {
   const [transferringItem, setTransferringItem] = useState<Item | null>(null)
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
 
-  // 🚀 Fetch Items using your custom useItems hook
-  const { data: items = [], isLoading: isLoadingItems } = useItems()
+  // 🚀 Server-Paginated Items Query
+  const { data, isLoading: isLoadingItems } = useItems({
+    page,
+    limit: pageSize,
+    search: filters.search,
+    locationId: filters.locationId ?? undefined,
+  })
 
-  // 🚀 Hook for Quantity Mutations (includes built-in optimistic UI updates)
+  const items = data?.data || []
+  const pagination = data?.pagination
+
+  // 🚀 Hook for Quantity Mutations
   const updateQuantityMutation = useUpdateItemQuantity()
 
   // Locations Query
@@ -63,6 +73,17 @@ export default function Items() {
   })
 
   const loading = isLoadingItems || isLoadingLocations
+
+  // Handle filter changes (Resets to Page 1)
+  const handleFilterChange = (newFilters: ItemFilters) => {
+    setFilters(newFilters)
+    setPage(1)
+  }
+
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setPage(1)
+  }
 
   // Map locations by ID for quick table lookup
   const locationsMap = useMemo(() => {
@@ -81,20 +102,12 @@ export default function Items() {
       .map((loc) => ({ id: loc.id, label: loc.label }))
   }, [locations])
 
-  // Filter & Sort Items in memory
-  const filteredItems = useMemo(() => {
+  // Process client-side filters (low stock / expiry / client sorting) on the current page dataset
+  const processedItems = useMemo(() => {
     if (!items) return []
 
     return items
       .filter((item) => {
-        if (filters.search && !item.label?.toLowerCase().includes(filters.search.toLowerCase())) {
-          return false
-        }
-
-        if (filters.locationId !== null && item.locationId !== filters.locationId) {
-          return false
-        }
-
         if (filters.stockStatus === 'low_stock') {
           const isLow =
             item.quantity != null &&
@@ -146,7 +159,7 @@ export default function Items() {
       })
   }, [items, filters])
 
-  // 🚀 Trigger Optimistic Quantity Update Mutation
+  // Trigger Optimistic Quantity Update Mutation
   const handleUpdateQuantity = (id: number, newQuantity: number) => {
     updateQuantityMutation.mutate({ id, quantity: newQuantity })
   }
@@ -178,7 +191,7 @@ export default function Items() {
         <div>
           <h1 className="text-xl font-bold">Items</h1>
           <p className="text-xs text-gray-500">
-            {filteredItems.length} of {items?.length || 0} total items
+            Showing {items.length} of {pagination?.totalItems || 0} total items
           </p>
         </div>
 
@@ -197,20 +210,26 @@ export default function Items() {
       <ItemFilterBar
         filters={filters}
         locations={locations}
-        onChange={setFilters}
-        onReset={() => setFilters(DEFAULT_FILTERS)}
+        onChange={handleFilterChange}
+        onReset={handleResetFilters}
       />
 
-      {/* ITEMS TABLE */}
-      {items && (
-        <ItemsTable
-          items={filteredItems}
-          locationsMap={locationsMap}
-          onUpdateQuantity={handleUpdateQuantity}
-          onSelectItem={(item: Item) => setSelectedItem(item)}
-          onTransferItem={(item: Item) => setTransferringItem(item)}
-        />
-      )}
+      {/* SERVER-PAGINATED ITEMS TABLE */}
+      <ItemsTable
+        items={processedItems}
+        totalItems={pagination?.totalItems || 0}
+        currentPage={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setPage(1)
+        }}
+        locationsMap={locationsMap}
+        onUpdateQuantity={handleUpdateQuantity}
+        onSelectItem={(item: Item) => setSelectedItem(item)}
+        onTransferItem={(item: Item) => setTransferringItem(item)}
+      />
 
       {/* ADD ITEM MODAL */}
       {isAddOpen && (
@@ -221,7 +240,7 @@ export default function Items() {
           currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
           onItemAdded={() => {
-            setIsAddOpen(false) // Closes the modal after adding an item
+            setIsAddOpen(false)
           }}
         />
       )}

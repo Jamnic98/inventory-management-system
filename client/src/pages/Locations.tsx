@@ -18,21 +18,32 @@ export default function Locations() {
   const [modalParentId, setModalParentId] = useState<number | null>(null)
   const [locationToEdit, setLocationToEdit] = useState<Location | null>(null)
 
-  // Fetch data via React Query hooks
+  // Fetch Locations
   const { data: locations = [], isLoading: isLoadingLocs, isError: isErrorLocs } = useLocations()
   const { mutate: deleteLocation, isPending: isDeleting } = useDeleteLocation()
-  const { data: items = [], isLoading: isLoadingItems } = useItems()
+
+  // 🚀 Fetch items scoped specifically to the selected location
+  const { data: itemsResponse, isLoading: isLoadingItems } = useItems(
+    selectedId ? { locationId: Number(selectedId), limit: 100 } : undefined
+  )
+
+  // Handle both array and paginated object responses safely
+  const locationItems = useMemo(() => {
+    if (!itemsResponse) return []
+    return Array.isArray(itemsResponse) ? itemsResponse : itemsResponse.data || []
+  }, [itemsResponse])
 
   // Map item counts per location ID
+  // Note: Ideally, count should come from location._count.items on backend location object
   const itemCountsMap = useMemo(() => {
     const map = new Map<number | string, number>()
-    items.forEach((item) => {
+    for (const item of locationItems) {
       if (item.locationId) {
         map.set(item.locationId, (map.get(item.locationId) || 0) + 1)
       }
-    })
+    }
     return map
-  }, [items])
+  }, [locationItems])
 
   // Filter and build tree hierarchy
   const locationTree = useMemo(() => {
@@ -62,12 +73,6 @@ export default function Locations() {
     if (!selectedLocation) return []
     return locations.filter((loc) => String(loc.parentId) === String(selectedLocation.id))
   }, [locations, selectedLocation])
-
-  // Items stored directly in the active location
-  const locationItems = useMemo(
-    () => items.filter((item) => String(item.locationId) === String(selectedId)),
-    [items, selectedId]
-  )
 
   // Handler for selecting a location node
   const handleSelect = (id: number | string) => {
@@ -119,7 +124,6 @@ export default function Locations() {
           setSearchParams({}) // Clear selection after deletion
         },
         onError: (err) => {
-          // TODO: replace with alert banner
           const errorMessage =
             err instanceof Error && err.message
               ? err.message
@@ -130,7 +134,7 @@ export default function Locations() {
     }
   }
 
-  if (isLoadingLocs || isLoadingItems) {
+  if (isLoadingLocs || (selectedId && isLoadingItems)) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-gray-500">
         Loading locations and inventory...
