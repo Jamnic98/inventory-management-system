@@ -5,6 +5,7 @@ import {
   deleteLocation,
   getLocationById,
   getLocations,
+  restoreLocation,
   updateLocation,
   type AddLocationData,
 } from '../api/locations'
@@ -86,6 +87,21 @@ export const useDeleteLocation = () => {
     mutationFn: (id: number | string) => deleteLocation(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: locationKeys.all })
+    },
+  })
+}
+
+/**
+ * Restore an archived location by ID
+ */
+export const useRestoreLocation = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number | string) => restoreLocation(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: locationKeys.all })
+      queryClient.invalidateQueries({ queryKey: locationKeys.detail(id) })
     },
   })
 }

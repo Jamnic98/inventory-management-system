@@ -5,6 +5,7 @@ import {
   addLocation,
   updateLocation,
   deleteLocationById,
+  restoreLocationByID,
 } from '../../controllers/locations.controller.js'
 import {
   getLocationSubscription,
@@ -23,6 +24,7 @@ router.get('/:id', getLocationById)
 router.post('/', requireAuth, addLocation)
 router.patch('/:id', requireAuth, updateLocation)
 router.delete('/:id', requireAuth, deleteLocationById)
+router.post('/:id/restore', requireAuth, restoreLocationByID)
 
 // Protected Subscription Operations
 router.get('/:locationId/subscription', requireAuth, getLocationSubscription)

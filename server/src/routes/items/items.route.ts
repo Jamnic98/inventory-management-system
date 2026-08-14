@@ -4,6 +4,7 @@ import {
   getItems,
   getArchivedItems,
   getItemByID,
+  getItemByBarcode,
   addItem,
   updateItemByID,
   deleteItemByID,
@@ -16,6 +17,9 @@ const router = Router()
 router.get('/', getItems)
 router.post('/', addItem)
 router.get('/archived', getArchivedItems)
+
+// Barcode route (place BEFORE /:id to prevent route conflicts)
+router.get('/barcode/:barcode', getItemByBarcode)
 
 // Item-specific routes
 router.get('/:id', getItemByID)

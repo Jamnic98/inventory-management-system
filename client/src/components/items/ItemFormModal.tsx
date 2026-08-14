@@ -1,9 +1,29 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Camera, Clock, ChevronDown, ChevronUp, AlertTriangle, Lock, ScanLine } from 'lucide-react'
+import React, { useEffect, useMemo, useState, useRef, useContext } from 'react'
+import {
+  Camera,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Lock,
+  ScanLine,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react'
 
 import { BarcodeScanner, Modal, Select } from '..'
-import { useCreateItem } from '../../hooks'
-import type { Location, Item } from '../../types'
+import { AlertContext } from '../../context/AlertContext' // Adjust relative path to where AlertContext is stored
+import { useCreateItem, useItemByBarcode, useRestoreItem, useUpdateItem } from '../../hooks'
+import type { Location } from '../../types'
+
+// TODO: move
+// Helper to safely convert Date / ISO string to YYYY-MM-DD for <input type="date" />
+export const formatDateForInput = (dateVal?: string | Date | null): string => {
+  if (!dateVal) return ''
+  const dateObj = typeof dateVal === 'string' ? new Date(dateVal) : dateVal
+  if (isNaN(dateObj.getTime())) return '' // Prevents invalid date crashes
+
+  return dateObj.toISOString().split('T')[0]
+}
 
 interface ItemFormModalProps {
   isOpen: boolean
@@ -11,12 +31,11 @@ interface ItemFormModalProps {
   initialBarcode?: string
   currentUserId?: number | null
   onClose: () => void
-  onItemAdded: (newItem: Item) => void
 }
 
 type FormState = {
   label: string
-  quantity: number
+  quantity: string
   barcode: string
   locationId: number | null
   expirationDate: string
@@ -28,7 +47,7 @@ type FormState = {
 
 const INITIAL_FORM: FormState = {
   label: '',
-  quantity: 1,
+  quantity: '1',
   barcode: '',
   locationId: null,
   expirationDate: '',
@@ -44,17 +63,25 @@ export default function ItemFormModal({
   initialBarcode = '',
   currentUserId = null,
   onClose,
-  onItemAdded,
 }: ItemFormModalProps) {
+  const alert = useContext(AlertContext)
+
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
-  const [error, setError] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState<boolean>(true)
   const [showShelfLife, setShowShelfLife] = useState<boolean>(false)
+  const [overrideBarcode, setOverrideBarcode] = useState<string | null>(null)
+  const [existingItemId, setExistingItemId] = useState<number | string | null>(null)
+
+  const [isArchivedMatch, setIsArchivedMatch] = useState(false)
+  const { data: matchedItem, isLoading: isLookingUp } = useItemByBarcode(form.barcode)
+  const { mutate: createItem, isPending: isCreating } = useCreateItem()
+  const { mutate: updateItem, isPending: isUpdating } = useUpdateItem()
+  const { mutate: restoreItem } = useRestoreItem()
 
   // Ref to track the shelf life element
   const shelfLifeRef = useRef<HTMLDivElement | null>(null)
 
-  const { mutate: createItem, isPending } = useCreateItem()
+  const isPending = isCreating || isUpdating || isLookingUp
 
   const locationOptions = useMemo(() => {
     return locations.map((loc) => ({
@@ -70,7 +97,6 @@ export default function ItemFormModal({
         ...INITIAL_FORM,
         barcode: initialBarcode || '',
       })
-      setError(null)
       setShowScanner(true)
       setShowShelfLife(false)
     }
@@ -79,7 +105,6 @@ export default function ItemFormModal({
   // Scroll to the bottom when showShelfLife becomes true
   useEffect(() => {
     if (showShelfLife && shelfLifeRef.current) {
-      // Small timeout gives the DOM time to render the newly expanded content
       setTimeout(() => {
         shelfLifeRef.current?.scrollIntoView({
           behavior: 'smooth',
@@ -88,6 +113,88 @@ export default function ItemFormModal({
       }, 50)
     }
   }, [showShelfLife])
+
+  useEffect(() => {
+    // Reset if no item matched, or if the user clicked "Create as new"
+    const isOverridden = overrideBarcode && overrideBarcode === form.barcode.trim()
+
+    if (!matchedItem || isOverridden) {
+      setExistingItemId(null)
+      return
+    }
+
+    // Item matched! Switch modal to Update Mode and auto-fill
+    setExistingItemId(matchedItem.id)
+
+    if (matchedItem.expirationDate || matchedItem.openedOn || matchedItem.useWithinDays) {
+      setShowShelfLife(true)
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      label: matchedItem.label || prev.label,
+      quantity: matchedItem.quantity != null ? String(matchedItem.quantity) : prev.quantity,
+      locationId: matchedItem.locationId ?? prev.locationId,
+      lowStockThreshold:
+        matchedItem.lowStockThreshold != null
+          ? String(matchedItem.lowStockThreshold)
+          : prev.lowStockThreshold,
+      expirationDate: formatDateForInput(matchedItem.expirationDate),
+      openedOn: formatDateForInput(matchedItem.openedOn),
+      useWithinDays:
+        matchedItem.useWithinDays != null ? String(matchedItem.useWithinDays) : prev.useWithinDays,
+      isPersonal: Boolean(matchedItem.userId && matchedItem.userId === currentUserId),
+    }))
+  }, [matchedItem, overrideBarcode, form.barcode, currentUserId])
+
+  useEffect(() => {
+    const isOverridden = overrideBarcode && overrideBarcode === form.barcode.trim()
+
+    if (matchedItem && !isOverridden) {
+      setExistingItemId(matchedItem.id)
+
+      // Check if the barcode belongs to an archived item
+      const isArchived = Boolean(matchedItem.deletedAt)
+      setIsArchivedMatch(isArchived)
+
+      // Auto-expand shelf life section if dates exist
+      if (matchedItem.expirationDate || matchedItem.openedOn || matchedItem.useWithinDays) {
+        setShowShelfLife(true)
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        label: matchedItem.label || prev.label,
+        // Convert quantity to String so form state remains consistent
+        quantity: matchedItem.quantity != null ? String(matchedItem.quantity) : prev.quantity,
+        locationId: matchedItem.locationId ?? prev.locationId,
+        lowStockThreshold:
+          matchedItem.lowStockThreshold != null
+            ? String(matchedItem.lowStockThreshold)
+            : prev.lowStockThreshold,
+        expirationDate: formatDateForInput(matchedItem.expirationDate),
+        openedOn: formatDateForInput(matchedItem.openedOn),
+        useWithinDays:
+          matchedItem.useWithinDays != null
+            ? String(matchedItem.useWithinDays)
+            : prev.useWithinDays,
+        isPersonal: Boolean(matchedItem.userId && matchedItem.userId === currentUserId),
+      }))
+    } else {
+      setExistingItemId(null)
+      setIsArchivedMatch(false)
+    }
+  }, [matchedItem, overrideBarcode, form.barcode, currentUserId])
+
+  // Reset state when opening modal
+  useEffect(() => {
+    if (isOpen) {
+      setForm({ ...INITIAL_FORM, barcode: initialBarcode || '' })
+      setExistingItemId(null)
+      setShowScanner(true)
+      setShowShelfLife(false)
+    }
+  }, [isOpen, initialBarcode])
 
   const handleChange = (field: keyof FormState, value: string | number | boolean | null) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -107,10 +214,8 @@ export default function ItemFormModal({
       return
     }
 
-    // Find the selected location object
     const selectedLoc = locations.find((loc) => loc.id === selectedLocId)
 
-    // If the location belongs to the current user, default the item to private
     if (selectedLoc && currentUserId && selectedLoc.userId === currentUserId) {
       handleChange('isPersonal', true)
     } else {
@@ -120,48 +225,115 @@ export default function ItemFormModal({
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!form.label.trim()) {
-      setError('Label is required.')
-      return
-    }
-
-    setError(null)
+    if (!form.label.trim()) return alert?.error('Label is required.')
 
     const payload = {
       label: form.label.trim(),
-      quantity: Number(form.quantity) || 0,
+      quantity: form.quantity !== '' ? Math.max(0, Number(form.quantity)) : 0,
       barcode: form.barcode.trim() || null,
       locationId: form.locationId ? Number(form.locationId) : null,
       expirationDate: form.expirationDate ? new Date(form.expirationDate) : null,
       openedOn: form.openedOn ? new Date(form.openedOn) : null,
       useWithinDays: form.useWithinDays ? Number(form.useWithinDays) : null,
-      lowStockThreshold: form.lowStockThreshold !== '' ? Number(form.lowStockThreshold) : null,
+      lowStockThreshold:
+        form.lowStockThreshold !== '' && form.lowStockThreshold != null
+          ? Math.max(0, Number(form.lowStockThreshold))
+          : 1,
       userId: form.isPersonal && currentUserId ? currentUserId : null,
     }
 
+    const resetState = () => {
+      setForm((prev) => ({
+        ...INITIAL_FORM,
+        locationId: prev.locationId,
+        isPersonal: prev.isPersonal,
+      }))
+      setExistingItemId(null)
+      setIsArchivedMatch(false)
+      setOverrideBarcode(null)
+      setShowScanner(true)
+      setShowShelfLife(false)
+    }
+
+    // RESTORE MODE (Barcode matches an archived item)
+    if (isArchivedMatch && existingItemId) {
+      restoreItem(existingItemId, {
+        onSuccess: (restoredItem) => {
+          alert?.success(`Restored "${restoredItem.label || 'Item'}" successfully!`)
+          resetState()
+        },
+        onError: (err) => alert?.error(err.message || 'Failed to restore item.'),
+      })
+      return
+    }
+
+    // UPDATE MODE (Barcode matches an active existing item)
+    if (existingItemId) {
+      updateItem(
+        { itemId: existingItemId, data: payload },
+        {
+          onSuccess: (updatedItem) => {
+            alert?.success(`Updated "${updatedItem.label || 'Item'}" successfully!`)
+            resetState()
+          },
+          onError: (err) => alert?.error(err.message || 'Failed to update item.'),
+        }
+      )
+      return
+    }
+
+    // CREATE MODE (Brand new barcode or manual entry)
     createItem(payload, {
       onSuccess: (newItem) => {
-        onItemAdded?.(newItem)
-        setForm(INITIAL_FORM)
-        onClose()
+        alert?.success(`Added "${newItem.label || 'Item'}" successfully!`)
+        resetState()
       },
-      onError: (err) => {
-        console.error('Failed to create item:', err)
-        setError(err.message || 'Failed to save item.')
-      },
+      onError: (err) => alert?.error(err.message || 'Failed to save item.'),
     })
   }
 
   return (
-    <Modal isOpen={isOpen} title="Add New Item" onClose={onClose}>
-      {error && (
-        <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
-          <span>{error}</span>
+    <Modal isOpen={isOpen} title="Add Items" onClose={onClose}>
+      {/* Insert directly above <form> inside <Modal> */}
+      {existingItemId && (
+        <div className="mb-3 flex items-center justify-between gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs">
+          <span className="flex items-center gap-1.5 font-medium">
+            <RefreshCw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            Matched existing item. Submitting will update this record.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setOverrideBarcode(form.barcode.trim())
+              setExistingItemId(null)
+            }}
+            className="text-amber-700 underline font-semibold hover:text-amber-900 cursor-pointer shrink-0"
+          >
+            Create as new
+          </button>
         </div>
       )}
 
+      {/* Replace static ScanLine icon in input wrapper with loader */}
+      {isLookingUp ? (
+        <Loader2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 animate-spin" />
+      ) : (
+        <ScanLine className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {isArchivedMatch && (
+          <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-3 text-amber-900">
+            <div className="text-sm">
+              <p className="font-semibold">Archived Item Found</p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                "{matchedItem?.label}" was previously archived. Restoring it will bring back its
+                record and set its active quantity.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* BARCODE & SCANNER SECTION */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
           <div className="flex items-center gap-2">
@@ -178,7 +350,7 @@ export default function ItemFormModal({
             <button
               type="button"
               onClick={() => setShowScanner(!showScanner)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm shrink-0"
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5 text-slate-500" />
               <span>{showScanner ? 'Close Camera' : 'Scan'}</span>
@@ -335,14 +507,24 @@ export default function ItemFormModal({
             disabled={isPending}
             className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-medium hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
           >
-            Cancel
+            Done
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 cursor-pointer"
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
           >
-            {isPending ? 'Adding...' : 'Add Item'}
+            {isPending
+              ? isArchivedMatch
+                ? 'Restoring...'
+                : existingItemId
+                  ? 'Updating...'
+                  : 'Adding...'
+              : isArchivedMatch
+                ? 'Restore Item'
+                : existingItemId
+                  ? 'Update Item'
+                  : 'Add Item'}
           </button>
         </div>
       </form>

@@ -108,15 +108,24 @@ export default function Items() {
 
     return items
       .filter((item) => {
+        // Stock Status Filters
         if (filters.stockStatus === 'low_stock') {
           const isLow =
             item.quantity != null &&
+            item.quantity > 0 && // Low stock applies to active items with quantity > 0
             item.lowStockThreshold != null &&
             item.quantity <= item.lowStockThreshold
 
           if (!isLow) return false
         }
 
+        if (filters.stockStatus === 'out_of_stock') {
+          const isOutOfStock = item.quantity == null || item.quantity === 0
+
+          if (!isOutOfStock) return false
+        }
+
+        // Expiry Status Filters
         if (filters.expiryStatus !== 'all') {
           const effExpiry = getEffectiveExpiration(item)
           if (!effExpiry) return false
@@ -239,9 +248,6 @@ export default function Items() {
           initialBarcode={''}
           currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
-          onItemAdded={() => {
-            setIsAddOpen(false)
-          }}
         />
       )}
 

@@ -282,3 +282,31 @@ export const deleteLocationById = async (req: Request, res: Response): Promise<v
     handlePrismaError(error, res, 'Failed to delete location')
   }
 }
+
+/**
+ * POST /locations/:id/restore - Un-archive location
+ */
+export const restoreLocationByID = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const locationId = parseId(req.params.id)
+    if (isNaN(locationId)) {
+      res.status(400).json({ error: 'Invalid ID format' })
+      return
+    }
+
+    const restoredLocation = await prisma.location.update({
+      where: { id: locationId },
+      data: { deletedAt: null },
+    })
+
+    broadcast({ type: 'location:restored', id: restoredLocation.id })
+
+    res.status(200).json(restoredLocation)
+  } catch (error: unknown) {
+    console.error('Error restoring location:', error)
+    handlePrismaError(error, res, 'Failed to restore location')
+  }
+}

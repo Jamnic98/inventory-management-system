@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import { NextFunction, Request, Response } from 'express'
 import { Prisma } from '../generated/prisma/client.js'
 
 import prisma from '../db.js'
@@ -435,5 +435,51 @@ export const restoreItemByID = async (
   } catch (error: unknown) {
     console.error('Error restoring item:', error)
     handlePrismaError(error, res, 'Failed to restore item')
+  }
+}
+
+/**
+ * GET /items/barcode/:barcode - Retrieve catalog item by exact barcode (active or archived)
+ */
+export const getItemByBarcode = async (
+  req: Request<{ barcode: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const rawBarcode = req.params.barcode
+    const barcode = rawBarcode ? rawBarcode.trim() : ''
+
+    if (!barcode) {
+      res.status(400).json({ error: 'Barcode parameter is required' })
+      return
+    }
+
+    const currentUserId = getCurrentUserId(req)
+
+    const item = await prisma.item.findFirst({
+      where: {
+        barcode,
+        OR: [
+          { userId: null }, // General / Household shared items
+          ...(currentUserId ? [{ userId: currentUserId }] : []),
+        ],
+      },
+      // Prioritize active items over archived items if duplicates exist
+      orderBy: [
+        { deletedAt: 'asc' }, // nulls/active items come first
+        { updatedAt: 'desc' },
+      ],
+      include: itemWithStocksInclude,
+    })
+
+    if (!item) {
+      res.status(404).json({ error: 'Item not found for this barcode' })
+      return
+    }
+
+    res.status(200).json(enrichItem(item))
+  } catch (error: unknown) {
+    console.error('Error fetching item by barcode:', error)
+    handlePrismaError(error, res, 'Failed to retrieve item by barcode')
   }
 }

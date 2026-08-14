@@ -9,6 +9,7 @@ import {
   getItemById,
   getItems,
   restoreItemById,
+  updateItem,
   updateItemQuantity,
 } from '../api/items'
 import type {
@@ -17,6 +18,7 @@ import type {
   GetItemsParams,
   Item,
   PaginatedResponse,
+  UpdateItemParams,
 } from '../types'
 
 // Central Query Keys
@@ -68,10 +70,13 @@ export const useArchivedItems = () => {
  * Lookup an item by barcode
  */
 export const useItemByBarcode = (barcode?: string) => {
+  const cleanBarcode = barcode?.trim()
+
   return useQuery<Item | null>({
-    queryKey: itemKeys.barcode(barcode!),
-    queryFn: () => getItemByBarcode(barcode!),
-    enabled: Boolean(barcode),
+    queryKey: itemKeys.barcode(cleanBarcode || ''),
+    queryFn: () => getItemByBarcode(cleanBarcode!),
+    enabled: Boolean(cleanBarcode),
+    staleTime: 1000 * 60 * 5, // 5 minute cache
   })
 }
 
@@ -94,6 +99,35 @@ export const useCreateItem = () => {
 }
 
 /**
+ * Update item
+ */
+export const useUpdateItem = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation<Item, Error, UpdateItemParams>({
+    mutationFn: ({ itemId, data }) => updateItem(itemId, data),
+    onSuccess: (updatedItem) => {
+      // Invalidate all item lists / main queries
+      queryClient.invalidateQueries({ queryKey: itemKeys.all })
+
+      // Invalidate or update the specific barcode query cache if a barcode exists
+      if (updatedItem.barcode) {
+        queryClient.invalidateQueries({
+          queryKey: itemKeys.barcode(updatedItem.barcode.trim()),
+        })
+      }
+
+      // Update or invalidate single item detail cache if you use detail keys
+      if (itemKeys.detail) {
+        queryClient.invalidateQueries({
+          queryKey: itemKeys.detail(updatedItem.id),
+        })
+      }
+    },
+  })
+}
+
+/**
  * Update item quantity (with Optimistic UI updates across primary batch & aggregated quantity)
  */
 export const useUpdateItemQuantity = () => {
@@ -103,22 +137,26 @@ export const useUpdateItemQuantity = () => {
     mutationFn: ({ id, quantity }: { id: number | string; quantity: number }) =>
       updateItemQuantity(id, quantity),
 
-    // Optimistic Update: Reflect top-level quantity and primary batch changes immediately
     onMutate: async ({ id, quantity }) => {
+      // Cancel any outgoing refetches for list queries
       await queryClient.cancelQueries({ queryKey: itemKeys.lists() })
 
-      const previousItems = queryClient.getQueryData<Item[]>(itemKeys.lists())
+      // Snapshot all matching paginated lists for rollback
+      const previousData = queryClient.getQueriesData<PaginatedResponse<Item>>({
+        queryKey: itemKeys.lists(),
+      })
 
-      if (previousItems) {
-        queryClient.setQueryData<Item[]>(
-          itemKeys.lists(),
-          previousItems.map((item) => {
+      // Optimistically update every active list cache
+      queryClient.setQueriesData<PaginatedResponse<Item>>({ queryKey: itemKeys.lists() }, (old) => {
+        if (!old) return old
+
+        return {
+          ...old,
+          data: old.data.map((item) => {
             if (String(item.id) !== String(id)) return item
 
             const updatedStocks = [...(item.stocks || [])]
-
             if (updatedStocks.length > 0) {
-              // Calculate difference (delta) between new total and current total
               const delta = quantity - (item.quantity ?? 0)
               const primaryQty = updatedStocks[0].quantity ?? 0
 
@@ -130,24 +168,23 @@ export const useUpdateItemQuantity = () => {
 
             return {
               ...item,
-              quantity, // Total aggregated quantity
+              quantity,
               stocks: updatedStocks,
             }
-          })
-        )
-      }
+          }),
+        }
+      })
 
-      return { previousItems }
+      return { previousData }
     },
 
-    // Rollback if server fails
     onError: (_err, _variables, context) => {
-      if (context?.previousItems) {
-        queryClient.setQueryData(itemKeys.lists(), context.previousItems)
-      }
+      // Roll back all paginated queries
+      context?.previousData?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
     },
 
-    // Always re-sync after settling
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all })
     },

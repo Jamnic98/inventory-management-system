@@ -37,14 +37,22 @@ const getEffectiveExpiration = (item: Item): Date | null => {
 
 // Helper to determine status badge display
 const getStatus = (item: Item) => {
+  // ARCHIVED (Highest priority - soft-deleted item)
   if (item.deletedAt) {
     return { label: 'Archived', color: 'bg-gray-100 text-gray-600 border border-gray-300' }
   }
 
+  // OUT OF STOCK (Quantity is 0 or null)
+  if (item.quantity == null || item.quantity <= 0) {
+    return { label: 'Out', color: 'bg-rose-100 text-rose-800' }
+  }
+
+  // OPENED EXPIRED
   if (item.isOpenedExpired) {
     return { label: 'Opened Expired', color: 'bg-red-100 text-red-800' }
   }
 
+  // HARD OR OPENED EXPIRATION CHECKS
   const effectiveExpiry = getEffectiveExpiration(item)
   const now = new Date()
 
@@ -54,10 +62,15 @@ const getStatus = (item: Item) => {
     if (diffDays <= 3) return { label: `${diffDays}d left`, color: 'bg-amber-100 text-amber-800' }
   }
 
-  if (item.isLowStock) {
+  // LOW STOCK (Quantity > 0, but <= lowStockThreshold)
+  const isLowStock =
+    item.isLowStock ?? (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)
+
+  if (isLowStock) {
     return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
   }
 
+  // DEFAULT IN STOCK
   return { label: 'OK', color: 'bg-green-100 text-green-800' }
 }
 
@@ -101,7 +114,7 @@ export default function ItemsTable({
               <th className="p-2 w-10 text-center" title="Personal Item" />
               <th className="p-2">Item</th>
               <th className="p-2 hidden sm:table-cell">Location</th>
-              <th className="p-2 text-center hidden md:table-cell">Batches</th>
+              {/* <th className="p-2 text-center hidden md:table-cell">Batches</th> */}
               <th className="p-2 text-center">Total Qty</th>
               <th className="p-2">Status</th>
             </tr>
@@ -182,7 +195,7 @@ export default function ItemsTable({
                     <td className="p-2 hidden sm:table-cell text-gray-600">{locationDisplay}</td>
 
                     {/* Dedicated Batches Count Column */}
-                    <td className="p-2 text-center hidden md:table-cell">
+                    {/* <td className="p-2 text-center hidden md:table-cell">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                           stocks.length > 1
@@ -192,7 +205,7 @@ export default function ItemsTable({
                       >
                         {stocks.length}
                       </span>
-                    </td>
+                    </td> */}
 
                     {/* Inline Quantity Controls */}
                     <td className="p-2">

@@ -36,6 +36,10 @@ export const deleteLocation = async (locationId: number | string): Promise<void>
   await apiClient.delete(`/locations/${locationId}`)
 }
 
+export const restoreLocation = async (locationId: number | string): Promise<Location> => {
+  return apiClient.post<Location>(`/locations/${locationId}/restore`)
+}
+
 // ---------------------------------------------------------------------------
 // Location Subscription Operations
 // ---------------------------------------------------------------------------

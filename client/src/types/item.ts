@@ -89,7 +89,7 @@ export interface AddStockBatchData {
 export interface ItemFilters {
   search: string
   locationId: number | null
-  stockStatus: 'all' | 'low_stock'
+  stockStatus: 'all' | 'low_stock' | 'out_of_stock'
   expiryStatus: 'all' | 'expiring_soon' | 'expired'
   archivedStatus?: 'active' | 'archived' | 'all'
   ownership?: 'all' | 'personal' | 'shared'
@@ -107,4 +107,9 @@ export interface GetItemsParams {
   limit?: number
   search?: string
   locationId?: number
+}
+
+export interface UpdateItemParams {
+  itemId: number | string
+  data: Partial<Item>
 }

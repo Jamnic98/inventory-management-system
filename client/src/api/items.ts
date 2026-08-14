@@ -56,9 +56,13 @@ export const restoreItemById = async (itemId: number | string): Promise<Item> =>
   return apiClient.post<Item>(`/items/${itemId}/restore`)
 }
 
+// api/items.ts
 export const getItemByBarcode = async (barcode: string): Promise<Item | null> => {
+  const cleanBarcode = barcode.trim()
+  if (!cleanBarcode) return null
+
   try {
-    return await apiClient.get<Item>(`/items/barcode/${barcode}`)
+    return await apiClient.get<Item>(`/items/barcode/${encodeURIComponent(cleanBarcode)}`)
   } catch (error: unknown) {
     if (isAPIError(error) && error.status === 404) {
       return null

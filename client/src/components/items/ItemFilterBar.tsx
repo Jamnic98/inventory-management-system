@@ -5,6 +5,7 @@ import {
   Archive,
   ChevronDown,
   ChevronUp,
+  PackageX,
   SlidersHorizontal,
   Timer,
 } from 'lucide-react'
@@ -56,12 +57,6 @@ export default function ItemFilterBar({
       })),
     ]
   }, [locations])
-
-  // const ownershipOptions: SelectOption[] = [
-  //   { value: 'all', label: 'All Ownership' },
-  //   { value: 'personal', label: 'Personal Items' },
-  //   { value: 'shared', label: 'Shared Items' },
-  // ]
 
   const sortOptions: SelectOption[] = [
     { value: 'expirationDate', label: 'Expiration' },
@@ -130,6 +125,27 @@ export default function ItemFilterBar({
               <div className="flex items-center gap-1 whitespace-nowrap">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Low Stock</span>
+              </div>
+            </button>
+
+            {/* Out of Stock Toggle */}
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors cursor-pointer ${
+                filters.stockStatus === 'out_of_stock'
+                  ? 'bg-rose-600 text-white border-rose-700 font-medium'
+                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200'
+              }`}
+              onClick={() =>
+                updateFilter(
+                  'stockStatus',
+                  filters.stockStatus === 'out_of_stock' ? 'all' : 'out_of_stock'
+                )
+              }
+            >
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <PackageX className="w-3.5 h-3.5" />
+                <span>Out of Stock</span>
               </div>
             </button>
 
@@ -206,18 +222,6 @@ export default function ItemFilterBar({
                   placeholder="All Locations"
                 />
               </div>
-
-              {/* Ownership Select */}
-              {/*               <div className="w-full md:w-40 min-w-0">
-                <Select
-                  options={ownershipOptions}
-                  value={filters.ownership || 'all'}
-                  onChange={(val) =>
-                    updateFilter('ownership', (val || 'all') as 'all' | 'personal' | 'shared')
-                  }
-                  placeholder="All Ownership"
-                />
-              </div> */}
             </div>
 
             {/* SORT CONTROLS */}

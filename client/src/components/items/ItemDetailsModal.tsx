@@ -176,7 +176,7 @@ export default function ItemDetailsModal({
         </div>
 
         {/* NESTED INVENTORY BATCHES (IF APPLICABLE) */}
-        {item.stocks && item.stocks.length > 0 && (
+        {item.stocks && item.stocks.length > 1 && (
           <div className="p-3 border border-slate-200 rounded-xl bg-white space-y-2">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
