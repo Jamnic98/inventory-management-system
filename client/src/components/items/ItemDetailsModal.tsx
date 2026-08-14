@@ -124,7 +124,7 @@ export default function ItemDetailsModal({
           <div className="p-3 border border-slate-200 rounded-xl bg-white space-y-1">
             <span className="text-slate-400 font-medium flex items-center gap-1 text-xs">
               <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
-              Low Stock Alert Below
+              Low Stock Alert
             </span>
             <p className="font-semibold text-slate-900">
               {item.lowStockThreshold != null ? item.lowStockThreshold : 'None'}

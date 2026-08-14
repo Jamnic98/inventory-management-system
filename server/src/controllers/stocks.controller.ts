@@ -9,36 +9,35 @@ export const transferStockController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Parse params & body
+    // 1. Parse params & body cleanly
     const sourceStockId = Number(req.params.id)
-    const { targetLocationId, quantityToMove } = req.body
+    const { targetLocationId, quantityToMove, quantity, sourceLocationId } = req.body
 
-    // Basic Input Validation
+    const amount = Number(quantityToMove ?? quantity)
+    const targetLocId = targetLocationId != null ? Number(targetLocationId) : null
+
+    // 2. Input Validation
     if (isNaN(sourceStockId) || sourceStockId <= 0) {
       res.status(400).json({ error: 'Invalid source stock ID' })
       return
     }
 
-    if (!targetLocationId || typeof targetLocationId !== 'number') {
-      res.status(400).json({ error: 'targetLocationId must be a valid number' })
-      return
-    }
-
-    if (!quantityToMove || typeof quantityToMove !== 'number' || quantityToMove <= 0) {
+    if (isNaN(amount) || amount <= 0) {
       res.status(400).json({ error: 'quantityToMove must be a positive number' })
       return
     }
 
-    // Call Service
+    // 3. Call Service & capture result
     const result = await transferStockService({
       sourceStockId,
-      targetLocationId,
-      quantityToMove,
+      targetLocationId: targetLocId,
+      quantityToMove: amount,
+      sourceLocationId: sourceLocationId != null ? Number(sourceLocationId) : undefined,
     })
 
     broadcast({ type: 'stock:transferred' })
 
-    // Return Success Response
+    // 4. Return Success Response
     res.status(200).json({
       message: 'Stock transferred successfully',
       data: result,

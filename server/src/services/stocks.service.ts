@@ -2,7 +2,7 @@ import prisma from '../db.js'
 
 interface StockTransferData {
   sourceStockId: number
-  targetLocationId: number
+  targetLocationId: number | null
   quantityToMove: number
 }
 
@@ -12,8 +12,18 @@ export const transferStockService = async ({
   quantityToMove,
   sourceLocationId, // Optional: if you know which location to move from
 }: StockTransferData & { sourceLocationId?: number }) => {
+  // 1. Sanitize and validate quantity
+  const amount = Number(quantityToMove)
+  if (!amount || isNaN(amount) || amount <= 0) {
+    throw new Error(`Invalid transfer quantity provided: ${quantityToMove}`)
+  }
+
+  // 2. Sanitize location IDs
+  const targetLocId = targetLocationId != null ? Number(targetLocationId) : null
+  const sourceLocId = sourceLocationId != null ? Number(sourceLocationId) : undefined
+
   return await prisma.$transaction(async (tx) => {
-    // 1. Try finding stock batch by ItemStock.id
+    // 3. Try finding stock batch by ItemStock.id
     let sourceStock = await tx.itemStock.findFirst({
       where: {
         id: sourceStockId,
@@ -21,14 +31,14 @@ export const transferStockService = async ({
       },
     })
 
-    // 2. Fallback: If not found, treat sourceStockId as itemId
+    // 4. Fallback: If not found, treat sourceStockId as itemId
     if (!sourceStock) {
       sourceStock = await tx.itemStock.findFirst({
         where: {
           itemId: sourceStockId,
-          ...(sourceLocationId ? { locationId: sourceLocationId } : {}),
+          ...(sourceLocId ? { locationId: sourceLocId } : {}),
           deletedAt: null,
-          quantity: { gte: quantityToMove }, // Pick batch with enough stock
+          quantity: { gte: amount }, // Pick batch with enough stock
         },
         orderBy: { createdAt: 'asc' }, // FIFO: take from oldest batch
       })
@@ -38,19 +48,19 @@ export const transferStockService = async ({
       throw new Error(`No available stock found for Item/Stock ID ${sourceStockId}.`)
     }
 
-    if (sourceStock.quantity < quantityToMove) {
+    if (sourceStock.quantity < amount) {
       throw new Error(
-        `Insufficient stock quantity. Requested: ${quantityToMove}, Available: ${sourceStock.quantity}`
+        `Insufficient stock quantity. Requested: ${amount}, Available: ${sourceStock.quantity}`
       )
     }
 
-    // Deduct quantity from source batch
+    // 5. Deduct quantity from source batch
     const updatedSource = await tx.itemStock.update({
       where: { id: sourceStock.id },
-      data: { quantity: { decrement: quantityToMove } },
+      data: { quantity: { decrement: amount } },
     })
 
-    // Soft-delete source batch if empty
+    // 6. Soft-delete source batch if empty
     if (updatedSource.quantity <= 0) {
       await tx.itemStock.update({
         where: { id: sourceStock.id },
@@ -58,12 +68,13 @@ export const transferStockService = async ({
       })
     }
 
-    // Check if target stock batch already exists
+    // 7. Check if target stock batch already exists (matching location, expiration & opened status)
     const existingTargetStock = await tx.itemStock.findFirst({
       where: {
         itemId: sourceStock.itemId,
-        locationId: targetLocationId,
+        locationId: targetLocId,
         expirationDate: sourceStock.expirationDate,
+        openedOn: sourceStock.openedOn,
         deletedAt: null,
       },
     })
@@ -71,14 +82,14 @@ export const transferStockService = async ({
     if (existingTargetStock) {
       await tx.itemStock.update({
         where: { id: existingTargetStock.id },
-        data: { quantity: { increment: quantityToMove } },
+        data: { quantity: { increment: amount } },
       })
     } else {
       await tx.itemStock.create({
         data: {
           itemId: sourceStock.itemId,
-          locationId: targetLocationId,
-          quantity: quantityToMove,
+          locationId: targetLocId,
+          quantity: amount,
           expirationDate: sourceStock.expirationDate,
           openedOn: sourceStock.openedOn,
         },

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 
 import { Modal } from '../../components'
 import type { LocationOption, Item } from '../../types'
+import { useAlert } from '../../hooks'
 
 export interface ItemTransferModalProps {
   isOpen: boolean
@@ -18,17 +19,16 @@ export default function ItemTransferModal({
   onClose,
   onTransfer,
 }: ItemTransferModalProps) {
+  const { error } = useAlert()
   const [targetLocationId, setTargetLocationId] = useState<number | ''>('')
   const [quantity, setQuantity] = useState<number>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   // Reset form inputs whenever a new item is selected or modal opens
   useEffect(() => {
     if (isOpen && item) {
       setTargetLocationId('')
       setQuantity(1)
-      setError(null)
       setIsSubmitting(false)
     }
   }, [isOpen, item])
@@ -40,16 +40,14 @@ export default function ItemTransferModal({
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault()
-    setError(null)
-
     if (!targetLocationId) {
-      setError('Please select a destination location.')
+      error('Please select a destination location.')
       return
     }
 
     const qty = Number(quantity)
     if (isNaN(qty) || qty <= 0 || qty > item.quantity) {
-      setError(`Quantity must be between 1 and ${item.quantity}.`)
+      error(`Quantity must be between 1 and ${item.quantity}.`)
       return
     }
 
@@ -58,7 +56,7 @@ export default function ItemTransferModal({
       await onTransfer(item.id!, Number(targetLocationId), qty)
       onClose()
     } catch (err: any) {
-      setError(err?.message || 'Failed to transfer item. Please try again.')
+      error(err?.message || 'Failed to transfer item. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -66,18 +64,12 @@ export default function ItemTransferModal({
 
   return (
     <Modal isOpen={isOpen} title={`Transfer ${item.label || 'Item'}`} onClose={onClose}>
-      <p className="text-xs text-gray-500 -mt-2">
+      <p className="text-xs text-gray-500">
         Available stock in current location:{' '}
         <span className="font-semibold text-gray-800">{item.quantity}</span>
       </p>
 
-      {error && (
-        <div className="rounded bg-red-50 p-2 text-xs text-red-700 border border-red-200">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         {/* Destination Location */}
         <div>
           <label className="block text-xs font-semibold text-gray-700 mb-1">

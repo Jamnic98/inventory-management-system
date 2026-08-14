@@ -404,25 +404,36 @@ export const restoreItemByID = async (
       return
     }
 
-    const { quantity, locationId, expirationDate } = req.body
+    // Safely fallback if req.body is undefined (e.g. from an Undo action)
+    const body = req.body || {}
+    const { quantity, locationId, expirationDate } = body
 
     const restoredItem = await prisma.$transaction(async (tx) => {
-      // Un-archive catalog item
+      // 1. Un-archive master catalog item
       await tx.item.update({
         where: { id: itemId },
         data: { deletedAt: null },
       })
 
-      // Create a fresh stock batch for restored item
-      await tx.itemStock.create({
-        data: {
-          itemId,
-          quantity: quantity !== undefined ? Number(quantity) : 1,
-          locationId: locationId ? Number(locationId) : null,
-          expirationDate: expirationDate ? new Date(expirationDate) : null,
-        },
+      // 2. Un-archive all original stock batches associated with this item
+      await tx.itemStock.updateMany({
+        where: { itemId },
+        data: { deletedAt: null },
       })
 
+      // 3. Optional: If specific override parameters were provided in req.body, create/update stock
+      if (quantity !== undefined || locationId !== undefined || expirationDate !== undefined) {
+        await tx.itemStock.create({
+          data: {
+            itemId,
+            quantity: quantity !== undefined ? Number(quantity) : 1,
+            locationId: locationId ? Number(locationId) : null,
+            expirationDate: expirationDate ? new Date(expirationDate) : null,
+          },
+        })
+      }
+
+      // 4. Return complete restored item with relations
       return tx.item.findUniqueOrThrow({
         where: { id: itemId },
         include: itemWithStocksInclude,

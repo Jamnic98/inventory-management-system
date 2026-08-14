@@ -2,7 +2,8 @@ import { useState, Fragment } from 'react'
 
 import { type Item } from '../../types'
 import { Pagination } from '..'
-import { Minus, Plus } from 'lucide-react'
+import { ArrowLeftRight, Minus, Plus, Trash2 } from 'lucide-react'
+import { useAlert, useDeleteItem, useRestoreItem } from '../../hooks'
 
 interface ItemsTableProps {
   items: Item[]
@@ -62,9 +63,9 @@ const getStatus = (item: Item) => {
     if (diffDays <= 3) return { label: `${diffDays}d left`, color: 'bg-amber-100 text-amber-800' }
   }
 
-  // LOW STOCK (Quantity > 0, but <= lowStockThreshold)
+  // Calculate directly based on item properties
   const isLowStock =
-    item.isLowStock ?? (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)
+    item.lowStockThreshold != null && item.quantity > 0 && item.quantity <= item.lowStockThreshold
 
   if (isLowStock) {
     return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
@@ -84,8 +85,13 @@ export default function ItemsTable({
   locationsMap = {},
   onUpdateQuantity,
   onSelectItem,
-  onRestore,
+  onTransferItem,
 }: ItemsTableProps) {
+  // Context & Mutation Hooks
+  const alert = useAlert()
+  const { mutate: deleteItem } = useDeleteItem()
+  const { mutateAsync: restoreItem } = useRestoreItem()
+
   const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({})
   const totalPages = Math.ceil(totalItems / pageSize)
 
@@ -104,6 +110,46 @@ export default function ItemsTable({
     )
   }
 
+  // Handle Soft-Delete with Undo Toast
+  const handleDelete = (item: Item) => {
+    if (!item.id) return
+
+    deleteItem(item.id, {
+      onSuccess: () => {
+        alert.success(`"${item.label || 'Item'}" deleted`, {
+          duration: 6000,
+          undoLabel: 'Undo',
+          onUndo: async () => {
+            try {
+              await restoreItem(item.id!)
+              alert.success(`"${item.label || 'Item'}" restored`)
+            } catch (err) {
+              console.error('Failed to restore item:', err)
+              alert.error('Failed to restore item')
+            }
+          },
+        })
+      },
+      onError: () => {
+        alert.error('Failed to delete item')
+      },
+    })
+  }
+
+  // Handle Manual Restore Action
+  const handleRestore = (item: Item) => {
+    if (!item.id) return
+
+    restoreItem(item.id, {
+      onSuccess: () => {
+        alert.success(`"${item.label || 'Item'}" restored`)
+      },
+      onError: () => {
+        alert.error('Failed to restore item')
+      },
+    })
+  }
+
   return (
     <>
       <div className="w-full overflow-x-auto border rounded bg-white shadow-sm">
@@ -114,9 +160,9 @@ export default function ItemsTable({
               <th className="p-2 w-10 text-center" title="Personal Item" />
               <th className="p-2">Item</th>
               <th className="p-2 hidden sm:table-cell">Location</th>
-              {/* <th className="p-2 text-center hidden md:table-cell">Batches</th> */}
               <th className="p-2 text-center">Total Qty</th>
               <th className="p-2">Status</th>
+              <th className="p-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -194,19 +240,6 @@ export default function ItemsTable({
                     {/* Location (Tablet / Desktop) */}
                     <td className="p-2 hidden sm:table-cell text-gray-600">{locationDisplay}</td>
 
-                    {/* Dedicated Batches Count Column */}
-                    {/* <td className="p-2 text-center hidden md:table-cell">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          stocks.length > 1
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {stocks.length}
-                      </span>
-                    </td> */}
-
                     {/* Inline Quantity Controls */}
                     <td className="p-2">
                       <div className="flex items-center justify-center gap-1">
@@ -248,17 +281,41 @@ export default function ItemsTable({
                     </td>
 
                     {/* Actions Column */}
-                    {isArchived && onRestore ? (
-                      <td className="p-2 text-right space-x-2">
-                        <button
-                          type="button"
-                          className="text-xs text-green-700 font-medium hover:underline"
-                          onClick={() => onRestore(item.id!)}
-                        >
-                          Restore
-                        </button>
-                      </td>
-                    ) : null}
+                    <td className="p-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            className="text-xs text-green-700 font-medium hover:underline cursor-pointer"
+                            onClick={() => handleRestore(item)}
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            {/* TODO: transer item */}
+                            {/*{onTransferItem && (
+                              <button
+                                type="button"
+                                title="Transfer Item"
+                                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                                onClick={() => onTransferItem(item)}
+                              >
+                                <ArrowLeftRight size={16} />
+                              </button>
+                            )} */}
+                            <button
+                              type="button"
+                              title="Delete Item"
+                              className="p-1 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                              onClick={() => handleDelete(item)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
 
                   {/* Sub-Table View (Only renders if canExpand === true and isExpanded === true) */}

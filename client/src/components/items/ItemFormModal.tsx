@@ -238,7 +238,7 @@ export default function ItemFormModal({
       lowStockThreshold:
         form.lowStockThreshold !== '' && form.lowStockThreshold != null
           ? Math.max(0, Number(form.lowStockThreshold))
-          : 1,
+          : null,
       userId: form.isPersonal && currentUserId ? currentUserId : null,
     }
 

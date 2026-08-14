@@ -1,6 +1,6 @@
 import { Router } from 'express'
 
-import { transferStockService as transferStock } from '../../services/stocks.service.js'
+import { transferStockController as transferStock } from '../../controllers/stocks.controller.js'
 
 const router = Router()
 
