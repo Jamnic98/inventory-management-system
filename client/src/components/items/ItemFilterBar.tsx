@@ -57,11 +57,11 @@ export default function ItemFilterBar({
     ]
   }, [locations])
 
-  const ownershipOptions: SelectOption[] = [
-    { value: 'all', label: 'All Ownership' },
-    { value: 'personal', label: 'Personal Items' },
-    { value: 'shared', label: 'Shared Items' },
-  ]
+  // const ownershipOptions: SelectOption[] = [
+  //   { value: 'all', label: 'All Ownership' },
+  //   { value: 'personal', label: 'Personal Items' },
+  //   { value: 'shared', label: 'Shared Items' },
+  // ]
 
   const sortOptions: SelectOption[] = [
     { value: 'expirationDate', label: 'Expiration' },
@@ -208,7 +208,7 @@ export default function ItemFilterBar({
               </div>
 
               {/* Ownership Select */}
-              <div className="w-full md:w-40 min-w-0">
+              {/*               <div className="w-full md:w-40 min-w-0">
                 <Select
                   options={ownershipOptions}
                   value={filters.ownership || 'all'}
@@ -217,7 +217,7 @@ export default function ItemFilterBar({
                   }
                   placeholder="All Ownership"
                 />
-              </div>
+              </div> */}
             </div>
 
             {/* SORT CONTROLS */}

@@ -96,7 +96,7 @@ export const getLocationById = async (req: Request, res: Response): Promise<void
 export const addLocation = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
-    const { label, parentId, isPersonal } = req.body
+    const { label, parentId, isPrivate } = req.body
 
     // Validate label presence and prevent whitespace-only strings
     if (!label || typeof label !== 'string' || label.trim().length === 0) {
@@ -122,7 +122,7 @@ export const addLocation = async (req: Request, res: Response): Promise<void> =>
         data: {
           label: trimmedLabel,
           parentId: parsedParentId,
-          userId: isPersonal && currentUserId ? currentUserId : null,
+          userId: isPrivate && currentUserId ? currentUserId : null,
         },
       })
 
@@ -181,7 +181,7 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
       return
     }
 
-    const { label, parentId, isPersonal } = req.body
+    const { label, parentId, isPrivate } = req.body
 
     // Prevent a location from becoming its own parent
     if (parentId !== undefined && parentId !== null) {
@@ -198,9 +198,9 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
     if (parentId !== undefined) {
       updateData.parent = parentId ? { connect: { id: parseId(parentId) } } : { disconnect: true }
     }
-    if (isPersonal !== undefined) {
+    if (isPrivate !== undefined) {
       updateData.user =
-        isPersonal && currentUserId ? { connect: { id: currentUserId } } : { disconnect: true }
+        isPrivate && currentUserId ? { connect: { id: currentUserId } } : { disconnect: true }
     }
 
     const updatedLocation = await prisma.location.update({

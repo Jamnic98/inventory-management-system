@@ -33,6 +33,7 @@ export default function LocationFormModal({
 }: LocationFormModalProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [isPrivate, setIsPrivate] = useState<boolean>(true)
 
   const { mutate: createLocation, isPending: isCreating } = useCreateLocation()
   const { mutate: updateLocation, isPending: isUpdating } = useUpdateLocation()
@@ -48,15 +49,27 @@ export default function LocationFormModal({
           label: locationToEdit.label || '',
           parentId: locationToEdit.parentId ? Number(locationToEdit.parentId) : null,
         })
+        setIsPrivate(locationToEdit.userId !== null && locationToEdit.userId !== undefined)
       } else {
         setForm({
           ...INITIAL_FORM,
           parentId: initialParentId ? Number(initialParentId) : null,
         })
+        setIsPrivate(true) // 🔒 Private by default for new locations
       }
       setError(null)
     }
   }, [isOpen, initialParentId, locationToEdit])
+
+  // If creating a sub-location, inherit privacy from the selected parent location
+  useEffect(() => {
+    if (isOpen && !locationToEdit && initialParentId && locations.length > 0) {
+      const parentLoc = locations.find((l) => l.id === initialParentId)
+      if (parentLoc) {
+        setIsPrivate(Boolean(parentLoc.userId))
+      }
+    }
+  }, [isOpen, initialParentId, locations, locationToEdit])
 
   // Get all descendant IDs of a location to prevent cyclic relationships
   const invalidParentIds = useMemo(() => {
@@ -97,7 +110,7 @@ export default function LocationFormModal({
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!form.label.trim()) {
@@ -107,9 +120,11 @@ export default function LocationFormModal({
 
     setError(null)
 
+    // 🚀 Included isPrivate in the payload sent to the backend
     const payload = {
       label: form.label.trim(),
       parentId: form.parentId ? Number(form.parentId) : null,
+      isPrivate,
     }
 
     if (isEditMode && locationToEdit) {
@@ -190,6 +205,26 @@ export default function LocationFormModal({
             placeholder="None (Top-Level Root Location)"
             direction="up"
           />
+        </div>
+
+        {/* Privacy Checkbox Toggle */}
+        <div className="pt-2 border-t border-gray-100">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-900">Private Location</span>
+              <p className="text-xs text-gray-500">
+                {isPrivate
+                  ? 'Only you can view and manage items stored in this location.'
+                  : 'Shared with everyone in your household/workspace.'}
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Form Actions */}

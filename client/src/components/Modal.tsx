@@ -51,7 +51,7 @@ export default function Modal({
         </div>
 
         {/* Content Body - flex-1 min-h-0 allows nested children to flex scroll properly */}
-        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+        <div className="flex-1 min-h-0 flex flex-col overflow-auto">{children}</div>
       </div>
     </div>
   )

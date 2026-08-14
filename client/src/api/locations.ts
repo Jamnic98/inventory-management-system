@@ -5,6 +5,7 @@ export type AddLocationData = {
   label: string
   type?: string
   parentId?: number | null
+  isPrivate: boolean
   description?: string
 }
 

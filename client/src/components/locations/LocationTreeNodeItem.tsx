@@ -44,7 +44,10 @@ export default function LocationTreeNodeItem({
           ) : (
             <span className="w-3" />
           )}
-          <span className="truncate">{node.label}</span>
+          <span className="truncate">
+            {node.label}
+            {node.userId && ' 🔒'}
+          </span>
         </div>
 
         {node.itemCount > 0 && (

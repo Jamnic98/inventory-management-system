@@ -98,6 +98,7 @@ export default function ItemsTable({
           <thead className="bg-gray-50 border-b text-gray-700">
             <tr>
               <th className="p-2 w-8 text-center" />
+              <th className="p-2 w-10 text-center" title="Personal Item" />
               <th className="p-2">Item</th>
               <th className="p-2 hidden sm:table-cell">Location</th>
               <th className="p-2 text-center hidden md:table-cell">Batches</th>
@@ -150,27 +151,29 @@ export default function ItemsTable({
                       ) : null}
                     </td>
 
-                    {/* Item Label & Personal Badge */}
-                    <td className="p-2 font-medium text-gray-900">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="cursor-pointer hover:underline text-blue-600 font-semibold"
-                          onClick={() => onSelectItem(item)}
-                        >
-                          {item.label || 'Unnamed Item'}
+                    {/* Personal Item Column */}
+                    <td className="p-2 text-center">
+                      {item.userId !== null && item.userId !== undefined && (
+                        <span className="inline-block text-xs" title="Personal Item">
+                          🔒
                         </span>
-                        {item.userId !== null && item.userId !== undefined && (
-                          <span
-                            className="px-1.5 py-0.2 text-[10px] bg-purple-50 text-purple-700 rounded border border-purple-200"
-                            title="Personal Item"
-                          >
-                            Personal
-                          </span>
-                        )}
+                      )}
+                    </td>
+
+                    {/* Item Label */}
+                    <td className="p-2 font-medium text-gray-900 max-w-40 sm:max-w-55">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate"
+                          onClick={() => onSelectItem(item)}
+                          title={item.label || '-'}
+                        >
+                          {item.label || '-'}
+                        </span>
                       </div>
 
                       {/* Mobile Fallback: Location */}
-                      <span className="text-xs text-gray-500 sm:hidden block mt-0.5">
+                      <span className="text-xs text-gray-500 sm:hidden block mt-0.5 truncate">
                         {locationDisplay}
                       </span>
                     </td>
