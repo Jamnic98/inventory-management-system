@@ -35,7 +35,13 @@ export const getLocations = async (req: Request, res: Response): Promise<void> =
         parent: true,
         children: true,
         _count: {
-          select: { stocks: { where: { deletedAt: null } } },
+          select: {
+            stocks: {
+              where: {
+                deletedAt: null,
+              },
+            },
+          },
         },
       },
       orderBy: {

@@ -12,7 +12,7 @@ interface ItemsTableProps {
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
-  locationsMap?: Record<number, string> // Maps locationId to location name e.g. { 1: "Pantry" }
+  locationsMap?: Record<number, string>
   onUpdateQuantity: (id: number, newQuantity: number) => void
   onSelectItem: (item: Item) => void
   onTransferItem?: (item: Item) => void
@@ -38,22 +38,18 @@ const getEffectiveExpiration = (item: Item): Date | null => {
 
 // Helper to determine status badge display
 const getStatus = (item: Item) => {
-  // ARCHIVED (Highest priority - soft-deleted item)
   if (item.deletedAt) {
     return { label: 'Archived', color: 'bg-gray-100 text-gray-600 border border-gray-300' }
   }
 
-  // OUT OF STOCK (Quantity is 0 or null)
   if (item.quantity == null || item.quantity <= 0) {
     return { label: 'Out', color: 'bg-rose-100 text-rose-800' }
   }
 
-  // OPENED EXPIRED
   if (item.isOpenedExpired) {
     return { label: 'Opened Expired', color: 'bg-red-100 text-red-800' }
   }
 
-  // HARD OR OPENED EXPIRATION CHECKS
   const effectiveExpiry = getEffectiveExpiration(item)
   const now = new Date()
 
@@ -63,7 +59,6 @@ const getStatus = (item: Item) => {
     if (diffDays <= 3) return { label: `${diffDays}d left`, color: 'bg-amber-100 text-amber-800' }
   }
 
-  // Calculate directly based on item properties
   const isLowStock =
     item.lowStockThreshold != null && item.quantity > 0 && item.quantity <= item.lowStockThreshold
 
@@ -71,7 +66,6 @@ const getStatus = (item: Item) => {
     return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
   }
 
-  // DEFAULT IN STOCK
   return { label: 'OK', color: 'bg-green-100 text-green-800' }
 }
 
@@ -86,7 +80,6 @@ export default function ItemsTable({
   onUpdateQuantity,
   onSelectItem,
 }: ItemsTableProps) {
-  // Context & Mutation Hooks
   const alert = useAlert()
   const { mutate: deleteItem } = useDeleteItem()
   const { mutateAsync: restoreItem } = useRestoreItem()
@@ -109,7 +102,6 @@ export default function ItemsTable({
     )
   }
 
-  // Handle Soft-Delete with Undo Toast
   const handleDelete = (item: Item) => {
     if (!item.id) return
 
@@ -135,7 +127,6 @@ export default function ItemsTable({
     })
   }
 
-  // Handle Manual Restore Action
   const handleRestore = (item: Item) => {
     if (!item.id) return
 
@@ -151,17 +142,17 @@ export default function ItemsTable({
 
   return (
     <>
-      <div className="w-full overflow-x-auto border rounded bg-white shadow-sm">
+      <div className="w-full border rounded bg-white shadow-sm overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 border-b text-gray-700">
+          <thead className="bg-gray-50 border-b text-gray-700 text-xs">
             <tr>
-              <th className="p-2 w-8 text-center" />
-              <th className="p-2 w-10 text-center" title="Personal Item" />
+              <th className="p-2 w-6 text-center hidden sm:table-cell" />
+              <th className="p-2 w-6 text-center hidden sm:table-cell" title="Personal Item" />
               <th className="p-2">Item</th>
               <th className="p-2 hidden sm:table-cell">Location</th>
-              <th className="p-2 text-center">Total Qty</th>
-              <th className="p-2">Status</th>
-              <th className="p-2 text-right">Actions</th>
+              <th className="p-2 text-center w-28">Qty</th>
+              <th className="p-2 hidden sm:table-cell">Status</th>
+              <th className="p-2 text-right w-12 sm:w-16">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -172,13 +163,12 @@ export default function ItemsTable({
               const isArchived = Boolean(item.deletedAt)
               const isExpanded = Boolean(expandedIds[item.id])
               const stocks = item.stocks || []
-              const canExpand = stocks.length > 1 // Only enable expandable view if > 1 batch
+              const canExpand = stocks.length > 1
 
               const isLowStock =
                 item.isLowStock ??
                 (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)
 
-              // Resolve location name
               const primaryLocationId = item.locationId || stocks[0]?.locationId
               const locationDisplay =
                 stocks.length > 1
@@ -189,15 +179,15 @@ export default function ItemsTable({
 
               return (
                 <Fragment key={item.id}>
-                  {/* Main Item Row */}
+                  {/* Main Row */}
                   <tr
                     className={`hover:bg-gray-50/80 transition-colors ${
                       isArchived ? 'opacity-75 bg-gray-50/50' : ''
                     } ${isExpanded ? 'bg-blue-50/20' : ''}`}
                   >
-                    {/* Expand Toggle Column (Only for > 1 batch) */}
-                    <td className="p-2 text-center">
-                      {canExpand ? (
+                    {/* Desktop Expand Toggle */}
+                    <td className="p-2 text-center hidden sm:table-cell">
+                      {canExpand && (
                         <button
                           type="button"
                           onClick={() => toggleExpand(item.id!)}
@@ -206,11 +196,11 @@ export default function ItemsTable({
                         >
                           {isExpanded ? '▼' : '▶'}
                         </button>
-                      ) : null}
+                      )}
                     </td>
 
-                    {/* Personal Item Column */}
-                    <td className="p-2 text-center">
+                    {/* Desktop Lock Icon */}
+                    <td className="p-2 text-center hidden sm:table-cell">
                       {item.userId !== null && item.userId !== undefined && (
                         <span className="inline-block text-xs" title="Personal Item">
                           🔒
@@ -218,11 +208,29 @@ export default function ItemsTable({
                       )}
                     </td>
 
-                    {/* Item Label */}
-                    <td className="p-2 font-medium text-gray-900 max-w-40 sm:max-w-55">
+                    {/* Item Title & Mobile Metadata */}
+                    <td className="p-2 font-medium text-gray-900">
                       <div className="flex items-center gap-1.5 min-w-0">
+                        {/* Mobile Expand Toggle */}
+                        {canExpand && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(item.id!)}
+                            className="text-gray-500 hover:text-gray-800 sm:hidden pr-1 focus:outline-none text-xs"
+                          >
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
+                        )}
+
+                        {/* Mobile Lock Icon */}
+                        {item.userId !== null && item.userId !== undefined && (
+                          <span className="inline-block text-xs sm:hidden" title="Personal Item">
+                            🔒
+                          </span>
+                        )}
+
                         <span
-                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate"
+                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate block max-w-[150px] xs:max-w-[200px] sm:max-w-none"
                           onClick={() => onSelectItem(item)}
                           title={item.label || '-'}
                         >
@@ -230,30 +238,35 @@ export default function ItemsTable({
                         </span>
                       </div>
 
-                      {/* Mobile Fallback: Location */}
-                      <span className="text-xs text-gray-500 sm:hidden block mt-0.5 truncate">
-                        {locationDisplay}
-                      </span>
+                      {/* Mobile Row Sub-Content: Location + Status Badge */}
+                      <div className="flex items-center gap-2 mt-1 sm:hidden">
+                        <span
+                          className={`inline-block px-1.5 py-0.2 rounded font-semibold ${status.color} text-[10px]`}
+                        >
+                          {status.label}
+                        </span>
+                        <span className="text-xs text-gray-400 truncate">{locationDisplay}</span>
+                      </div>
                     </td>
 
-                    {/* Location (Tablet / Desktop) */}
+                    {/* Desktop Location */}
                     <td className="p-2 hidden sm:table-cell text-gray-600">{locationDisplay}</td>
 
                     {/* Inline Quantity Controls */}
-                    <td className="p-2">
+                    <td className="p-2 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
                           disabled={isArchived}
-                          className="px-1 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                           onClick={() =>
                             onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
                           }
                         >
-                          <Minus size={14} />
+                          <Minus size={12} />
                         </button>
                         <span
-                          className={`min-w-6 text-center font-bold ${
+                          className={`min-w-5 text-center font-bold text-xs sm:text-sm ${
                             isLowStock ? 'text-red-600' : 'text-gray-800'
                           }`}
                         >
@@ -262,16 +275,16 @@ export default function ItemsTable({
                         <button
                           type="button"
                           disabled={isArchived}
-                          className="px-1 py-0.5 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                           onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
                         >
-                          <Plus size={14} />
+                          <Plus size={12} />
                         </button>
                       </div>
                     </td>
 
-                    {/* Dynamic Status Badge */}
-                    <td className="p-2">
+                    {/* Desktop Status Badge */}
+                    <td className="p-2 hidden sm:table-cell">
                       <span
                         className={`inline-block px-2 py-0.5 rounded font-semibold ${status.color} text-xs`}
                       >
@@ -291,85 +304,68 @@ export default function ItemsTable({
                             Restore
                           </button>
                         ) : (
-                          <>
-                            {/* TODO: transer item */}
-                            {/*{onTransferItem && (
-                              <button
-                                type="button"
-                                title="Transfer Item"
-                                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
-                                onClick={() => onTransferItem(item)}
-                              >
-                                <ArrowLeftRight size={16} />
-                              </button>
-                            )} */}
-                            <button
-                              type="button"
-                              title="Delete Item"
-                              className="p-1 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                              onClick={() => handleDelete(item)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            title="Delete Item"
+                            className="p-1 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                            onClick={() => handleDelete(item)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         )}
                       </div>
                     </td>
                   </tr>
 
-                  {/* Sub-Table View (Only renders if canExpand === true and isExpanded === true) */}
+                  {/* Mobile-Friendly Sub-Table Breakdown */}
                   {canExpand && isExpanded && (
                     <tr className="bg-slate-50/80 border-b">
-                      <td colSpan={7} className="p-3 pl-10">
+                      <td colSpan={7} className="p-2 sm:p-3 sm:pl-10">
                         <div className="bg-white border rounded shadow-inner overflow-hidden">
                           <div className="px-3 py-1.5 bg-gray-100 text-xs font-semibold text-gray-600 border-b flex justify-between items-center">
-                            <span>Stock Batches Breakdown</span>
-                            <span className="text-xs font-normal text-gray-500">
-                              Total Batches: {stocks.length}
-                            </span>
+                            <span>Batches ({stocks.length})</span>
                           </div>
 
-                          <table className="w-full text-xs text-left">
-                            <thead className="bg-gray-50/50 text-gray-500 border-b">
-                              <tr>
-                                <th className="p-2">Batch ID</th>
-                                <th className="p-2">Location</th>
-                                <th className="p-2 text-center">Quantity</th>
-                                <th className="p-2">Expiration Date</th>
-                                <th className="p-2">Opened Date</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {stocks.map((stock) => {
-                                const locName = stock.location?.label
-                                  ? stock.location.label
-                                  : stock.locationId
-                                    ? locationsMap[stock.locationId] ||
-                                      `Location #${stock.locationId}`
-                                    : 'Unassigned'
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs text-left min-w-[320px]">
+                              <thead className="bg-gray-50/50 text-gray-500 border-b">
+                                <tr>
+                                  <th className="p-1.5 sm:p-2">Batch</th>
+                                  <th className="p-1.5 sm:p-2">Location</th>
+                                  <th className="p-1.5 sm:p-2 text-center">Qty</th>
+                                  <th className="p-1.5 sm:p-2">Expiry</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {stocks.map((stock) => {
+                                  const locName = stock.location?.label
+                                    ? stock.location.label
+                                    : stock.locationId
+                                      ? locationsMap[stock.locationId] || `Loc #${stock.locationId}`
+                                      : 'Unassigned'
 
-                                const expDate = stock.expirationDate
-                                  ? new Date(stock.expirationDate).toLocaleDateString()
-                                  : 'N/A'
+                                  const expDate = stock.expirationDate
+                                    ? new Date(stock.expirationDate).toLocaleDateString()
+                                    : 'N/A'
 
-                                const openedDate = stock.openedOn
-                                  ? new Date(stock.openedOn).toLocaleDateString()
-                                  : 'Unopened'
-
-                                return (
-                                  <tr key={stock.id} className="hover:bg-blue-50/30">
-                                    <td className="p-2 font-mono text-gray-600">#{stock.id}</td>
-                                    <td className="p-2 text-gray-800 font-medium">{locName}</td>
-                                    <td className="p-2 text-center font-bold text-gray-700">
-                                      {stock.quantity}
-                                    </td>
-                                    <td className="p-2 text-gray-600">{expDate}</td>
-                                    <td className="p-2 text-gray-600">{openedDate}</td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
+                                  return (
+                                    <tr key={stock.id} className="hover:bg-blue-50/30">
+                                      <td className="p-1.5 sm:p-2 font-mono text-gray-600">
+                                        #{stock.id}
+                                      </td>
+                                      <td className="p-1.5 sm:p-2 text-gray-800 font-medium truncate max-w-[100px]">
+                                        {locName}
+                                      </td>
+                                      <td className="p-1.5 sm:p-2 text-center font-bold text-gray-700">
+                                        {stock.quantity}
+                                      </td>
+                                      <td className="p-1.5 sm:p-2 text-gray-600">{expDate}</td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -381,7 +377,6 @@ export default function ItemsTable({
         </table>
       </div>
 
-      {/* Pagination Footer */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

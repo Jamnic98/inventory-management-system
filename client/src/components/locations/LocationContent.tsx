@@ -119,7 +119,11 @@ export default function LocationContent({
                   >
                     <span className="text-sm font-medium text-gray-800 truncate">{sub.label}</span>
                     <span className="text-xs text-gray-400 font-mono">
-                      {itemCountsMap.get(sub.id) || 0} items
+                      {itemCountsMap.get(sub.id) ??
+                        itemCountsMap.get(String(sub.id)) ??
+                        itemCountsMap.get(Number(sub.id)) ??
+                        0}{' '}
+                      items
                     </span>
                   </div>
                 ))}

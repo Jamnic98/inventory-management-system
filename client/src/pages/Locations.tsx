@@ -41,13 +41,14 @@ export default function Locations() {
   // Note: Ideally, count should come from location._count.items on backend location object
   const itemCountsMap = useMemo(() => {
     const map = new Map<number | string, number>()
-    for (const item of locationItems) {
-      if (item.locationId) {
-        map.set(item.locationId, (map.get(item.locationId) || 0) + 1)
-      }
+    for (const loc of locations) {
+      // Safely extract count from Prisma's _count.stocks (or _count.items depending on API shape)
+      const count = (loc as any)._count?.stocks ?? (loc as any)._count?.items ?? 0
+      map.set(loc.id, count)
+      map.set(String(loc.id), count) // set both String and Number keys to avoid type mismatch
     }
     return map
-  }, [locationItems])
+  }, [locations])
 
   // Filter and build tree hierarchy
   const locationTree = useMemo(() => {

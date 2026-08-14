@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -52,11 +52,27 @@ export default function Items() {
   const [transferringItem, setTransferringItem] = useState<Item | null>(null)
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
 
+  // 🚀 Debounced search term for API queries
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(filters.search)
+    }, 300) // 300ms delay before triggering server search
+
+    return () => clearTimeout(handler)
+  }, [filters.search])
+
   // 🚀 Server-Paginated Items Query
-  const { data, isLoading: isLoadingItems } = useItems({
+  const {
+    data,
+    // TODO: replace deprecated
+    isInitialLoading: isLoadingItems,
+    // isFetching,
+  } = useItems({
     page,
     limit: pageSize,
-    search: filters.search,
+    search: debouncedSearch,
     locationId: filters.locationId ?? undefined,
   })
 
@@ -72,7 +88,8 @@ export default function Items() {
     queryFn: getLocations,
   })
 
-  const loading = isLoadingItems || isLoadingLocations
+  // Only block the UI on INITIAL page load, not during search refetches!
+  const isInitialLoad = (isLoadingItems && !data) || isLoadingLocations
 
   // Handle filter changes (Resets to Page 1)
   const handleFilterChange = (newFilters: ItemFilters) => {
@@ -102,7 +119,7 @@ export default function Items() {
       .map((loc) => ({ id: loc.id, label: loc.label }))
   }, [locations])
 
-  // Process client-side filters (low stock / expiry / client sorting) on the current page dataset
+  // Process client-side filters (low stock / expiry / client sorting) on current page dataset
   const processedItems = useMemo(() => {
     if (!items) return []
 
@@ -112,7 +129,7 @@ export default function Items() {
         if (filters.stockStatus === 'low_stock') {
           const isLow =
             item.quantity != null &&
-            item.quantity > 0 && // Low stock applies to active items with quantity > 0
+            item.quantity > 0 &&
             item.lowStockThreshold != null &&
             item.quantity <= item.lowStockThreshold
 
@@ -189,7 +206,7 @@ export default function Items() {
     }
   }
 
-  if (loading) {
+  if (isInitialLoad) {
     return <div className="p-4 text-sm text-gray-500">Loading inventory...</div>
   }
 
@@ -198,7 +215,13 @@ export default function Items() {
       {/* PRIMARY PAGE HEADER WITH ADD BUTTON */}
       <div className="flex justify-between items-center pb-2 border-b">
         <div>
-          <h1 className="text-xl font-bold">Items</h1>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            Items
+            {/* TODO: replace with loader */}
+            {/*             {isFetching && (
+              <span className="text-xs font-normal text-blue-600 animate-pulse">Updating...</span>
+            )} */}
+          </h1>
           <p className="text-xs text-gray-500">
             Showing {items.length} of {pagination?.totalItems || 0} total items
           </p>
@@ -251,7 +274,7 @@ export default function Items() {
         />
       )}
 
-      {/* Details Modal opens whenever selectedItem is not null */}
+      {/* Details Modal */}
       {selectedItem && (
         <ItemDetailsModal
           item={selectedItem}

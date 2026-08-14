@@ -38,10 +38,12 @@ export const itemKeys = {
 /**
  * Fetch all items
  */
-export const useItems = (params?: GetItemsParams) => {
-  return useQuery<PaginatedResponse<Item>>({
-    queryKey: itemKeys.list(params),
-    queryFn: () => getItems(params),
+export function useItems(params?: GetItemsParams) {
+  return useQuery({
+    queryKey: ['items', params],
+    queryFn: () => (params ? getItems(params) : null),
+    enabled: Boolean(params), // 🚀 Prevents query from running when params is undefined
+    placeholderData: (previousData) => previousData,
   })
 }
 
