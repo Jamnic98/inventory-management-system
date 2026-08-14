@@ -2,7 +2,7 @@ import { useState, Fragment } from 'react'
 
 import { type Item } from '../../types'
 import { Pagination } from '..'
-import { ArrowLeftRight, Minus, Plus, Trash2 } from 'lucide-react'
+import { Minus, Plus, Trash2 } from 'lucide-react'
 import { useAlert, useDeleteItem, useRestoreItem } from '../../hooks'
 
 interface ItemsTableProps {
@@ -85,7 +85,6 @@ export default function ItemsTable({
   locationsMap = {},
   onUpdateQuantity,
   onSelectItem,
-  onTransferItem,
 }: ItemsTableProps) {
   // Context & Mutation Hooks
   const alert = useAlert()
