@@ -305,13 +305,6 @@ export default function ItemFormModal({
         </div>
       )}
 
-      {/* Replace static ScanLine icon in input wrapper with loader */}
-      {isLookingUp ? (
-        <Loader2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 animate-spin" />
-      ) : (
-        <ScanLine className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
         {isArchivedMatch && (
           <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-3 text-amber-900">
