@@ -15,7 +15,7 @@ export default function LoginVerify() {
       loginWithToken(token)
         .then(() => {
           // navigate to dashboard
-          navigate('/items', { replace: true })
+          navigate('/', { replace: true })
         })
         .catch((err) => {
           console.error('Login failed:', err)

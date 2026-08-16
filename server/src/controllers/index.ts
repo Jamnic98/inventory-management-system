@@ -1,4 +1,5 @@
 export * from './auth.controller.js'
+export * from './dashboard.controller.js'
 export * from './items.controller.js'
 export * from './locations.controller.js'
 export * from './locationSubscription.controller.js'

@@ -1,4 +1,5 @@
 export { default as AuthRoute } from './auth/auth.route.js'
+export { default as DashBoardRoute } from './dashboard.route.js'
 export { default as Items } from './items/items.route.js'
 export { default as Locations } from './locations/locations.route.js'
 export { default as Stocks } from './stocks/stocks.route.js'

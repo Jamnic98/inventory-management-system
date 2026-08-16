@@ -1,4 +1,5 @@
 export * from './client'
+export * from './dashboard'
 export * from './items'
 export * from './locations'
 export * from './stocks'

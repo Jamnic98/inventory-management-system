@@ -8,7 +8,7 @@ import {
   PanelLeftOpen,
   User as UserIcon,
   type LucideIcon,
-  // LayoutDashboard,
+  LayoutDashboard,
 } from 'lucide-react'
 
 import { useAuth } from '../hooks/useAuth'
@@ -24,7 +24,7 @@ interface NavItem {
 
 // Main Navigation
 const MAIN_NAV_ITEMS: NavItem[] = [
-  // { to: '/', label: 'Dashboard', end: true, icon: LayoutDashboard },
+  { to: '/', label: 'Dashboard', end: true, icon: LayoutDashboard },
   { to: '/items', label: 'Items', icon: Package },
   { to: '/locations', label: 'Locations', icon: MapPinHouse },
 ]
