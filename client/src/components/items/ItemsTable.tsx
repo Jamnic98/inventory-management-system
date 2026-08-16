@@ -1,9 +1,10 @@
 import { useState, Fragment } from 'react'
+import { Minus, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
 
-import { type Item } from '../../types'
-import { Pagination } from '..'
-import { Minus, Plus, Trash2 } from 'lucide-react'
+import { ItemsSubTable, Pagination } from '..'
 import { useAlert, useDeleteItem, useRestoreItem } from '../../hooks'
+import { getStatus } from '../../utils/itemHelpers'
+import type { Item, ItemStock } from '../../types'
 
 interface ItemsTableProps {
   items: Item[]
@@ -12,61 +13,14 @@ interface ItemsTableProps {
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
-  locationsMap?: Record<number, string>
+  locationsMap: Record<number, string>
   onUpdateQuantity: (id: number, newQuantity: number) => void
   onSelectItem: (item: Item) => void
-  onTransferItem?: (item: Item) => void
+  onUpdateBatchQuantity?: (stockId: number, newQuantity: number) => void
+  onOpenBatchUnit: (stockId: number) => void
+  onTransferBatch: (stock: ItemStock, parentItem: Item) => void
   onRestore?: (id: number) => void
   initialPageSize?: number
-}
-
-// Helper to calculate effective expiration date
-const getEffectiveExpiration = (item: Item): Date | null => {
-  let openExpiry: Date | null = null
-  if (item.openedOn && item.useWithinDays) {
-    openExpiry = new Date(item.openedOn)
-    openExpiry.setDate(openExpiry.getDate() + item.useWithinDays)
-  }
-
-  const hardExpiry = item.expirationDate ? new Date(item.expirationDate) : null
-
-  if (openExpiry && hardExpiry) {
-    return openExpiry < hardExpiry ? openExpiry : hardExpiry
-  }
-  return openExpiry || hardExpiry
-}
-
-// Helper to determine status badge display
-const getStatus = (item: Item) => {
-  if (item.deletedAt) {
-    return { label: 'Archived', color: 'bg-gray-100 text-gray-600 border border-gray-300' }
-  }
-
-  if (item.quantity == null || item.quantity <= 0) {
-    return { label: 'Out', color: 'bg-rose-100 text-rose-800' }
-  }
-
-  if (item.isOpenedExpired) {
-    return { label: 'Opened Expired', color: 'bg-red-100 text-red-800' }
-  }
-
-  const effectiveExpiry = getEffectiveExpiration(item)
-  const now = new Date()
-
-  if (effectiveExpiry) {
-    const diffDays = Math.ceil((effectiveExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays < 0) return { label: 'Expired', color: 'bg-red-100 text-red-800' }
-    if (diffDays <= 3) return { label: `${diffDays}d left`, color: 'bg-amber-100 text-amber-800' }
-  }
-
-  const isLowStock =
-    item.lowStockThreshold != null && item.quantity > 0 && item.quantity <= item.lowStockThreshold
-
-  if (isLowStock) {
-    return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
-  }
-
-  return { label: 'OK', color: 'bg-green-100 text-green-800' }
 }
 
 export default function ItemsTable({
@@ -76,9 +30,12 @@ export default function ItemsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  locationsMap = {},
   onUpdateQuantity,
   onSelectItem,
+  locationsMap = {},
+  onUpdateBatchQuantity,
+  onOpenBatchUnit,
+  onTransferBatch,
 }: ItemsTableProps) {
   const alert = useAlert()
   const { mutate: deleteItem } = useDeleteItem()
@@ -146,11 +103,11 @@ export default function ItemsTable({
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 border-b text-gray-700 text-xs">
             <tr>
-              <th className="p-2 w-6 text-center hidden sm:table-cell" />
+              <th className="p-2 w-8 text-center hidden sm:table-cell" />
               <th className="p-2 w-6 text-center hidden sm:table-cell" title="Personal Item" />
               <th className="p-2">Item</th>
               <th className="p-2 hidden sm:table-cell">Location</th>
-              <th className="p-2 text-center w-28">Qty</th>
+              <th className="p-2 text-center w-28">Total Qty</th>
               <th className="p-2 hidden sm:table-cell">Status</th>
               <th className="p-2 text-right w-12 sm:w-16">Actions</th>
             </tr>
@@ -163,7 +120,8 @@ export default function ItemsTable({
               const isArchived = Boolean(item.deletedAt)
               const isExpanded = Boolean(expandedIds[item.id])
               const stocks = item.stocks || []
-              const canExpand = stocks.length > 1
+              // 🚀 Allow expanding whenever 1 or more batches exist
+              const canExpand = stocks.length > 0
 
               const isLowStock =
                 item.isLowStock ??
@@ -172,14 +130,17 @@ export default function ItemsTable({
               const primaryLocationId = item.locationId || stocks[0]?.locationId
               const locationDisplay =
                 stocks.length > 1
-                  ? 'Multiple Locations'
+                  ? `${stocks.length} Batches (${stocks
+                      .map((s) => locationsMap[s.locationId || 0] || 'Unassigned')
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .join(', ')})`
                   : primaryLocationId
                     ? locationsMap[primaryLocationId] || `Loc #${primaryLocationId}`
                     : '-'
 
               return (
                 <Fragment key={item.id}>
-                  {/* Main Row */}
+                  {/* Main Catalog Row */}
                   <tr
                     className={`hover:bg-gray-50/80 transition-colors ${
                       isArchived ? 'opacity-75 bg-gray-50/50' : ''
@@ -194,7 +155,11 @@ export default function ItemsTable({
                           className="text-gray-500 hover:text-gray-800 p-1 rounded focus:outline-none text-xs"
                           title={isExpanded ? 'Collapse batches' : 'Expand batches'}
                         >
-                          {isExpanded ? '▼' : '▶'}
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-blue-600" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
                         </button>
                       )}
                     </td>
@@ -218,7 +183,11 @@ export default function ItemsTable({
                             onClick={() => toggleExpand(item.id!)}
                             className="text-gray-500 hover:text-gray-800 sm:hidden pr-1 focus:outline-none text-xs"
                           >
-                            {isExpanded ? '▼' : '▶'}
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5 text-blue-600 inline" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 inline" />
+                            )}
                           </button>
                         )}
 
@@ -238,7 +207,7 @@ export default function ItemsTable({
                         </span>
                       </div>
 
-                      {/* Mobile Row Sub-Content: Location + Status Badge */}
+                      {/* Mobile Sub-Content */}
                       <div className="flex items-center gap-2 mt-1 sm:hidden">
                         <span
                           className={`inline-block px-1.5 py-0.2 rounded font-semibold ${status.color} text-[10px]`}
@@ -252,19 +221,22 @@ export default function ItemsTable({
                     {/* Desktop Location */}
                     <td className="p-2 hidden sm:table-cell text-gray-600">{locationDisplay}</td>
 
-                    {/* Inline Quantity Controls */}
+                    {/* Aggregate Inline Quantity Controls */}
                     <td className="p-2 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          disabled={isArchived}
-                          className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                          onClick={() =>
-                            onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
-                          }
-                        >
-                          <Minus size={12} />
-                        </button>
+                        {item.stocks.length <= 1 && (
+                          <button
+                            type="button"
+                            disabled={isArchived}
+                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() =>
+                              onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
+                            }
+                            title="Consume 1 unit (FIFO)"
+                          >
+                            <Minus size={12} />
+                          </button>
+                        )}
                         <span
                           className={`min-w-5 text-center font-bold text-xs sm:text-sm ${
                             isLowStock ? 'text-red-600' : 'text-gray-800'
@@ -272,14 +244,17 @@ export default function ItemsTable({
                         >
                           {item.quantity ?? 0}
                         </span>
-                        <button
-                          type="button"
-                          disabled={isArchived}
-                          className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                          onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
-                        >
-                          <Plus size={12} />
-                        </button>
+                        {item.stocks.length <= 1 && (
+                          <button
+                            type="button"
+                            disabled={isArchived}
+                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
+                            title="Add 1 unit"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
 
@@ -317,58 +292,18 @@ export default function ItemsTable({
                     </td>
                   </tr>
 
-                  {/* Mobile-Friendly Sub-Table Breakdown */}
+                  {/* 🚀 EXPANDABLE BATCH SUB-TABLE */}
                   {canExpand && isExpanded && (
-                    <tr className="bg-slate-50/80 border-b">
-                      <td colSpan={7} className="p-2 sm:p-3 sm:pl-10">
-                        <div className="bg-white border rounded shadow-inner overflow-hidden">
-                          <div className="px-3 py-1.5 bg-gray-100 text-xs font-semibold text-gray-600 border-b flex justify-between items-center">
-                            <span>Batches ({stocks.length})</span>
-                          </div>
-
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs text-left min-w-[320px]">
-                              <thead className="bg-gray-50/50 text-gray-500 border-b">
-                                <tr>
-                                  <th className="p-1.5 sm:p-2">Batch</th>
-                                  <th className="p-1.5 sm:p-2">Location</th>
-                                  <th className="p-1.5 sm:p-2 text-center">Qty</th>
-                                  <th className="p-1.5 sm:p-2">Expiry</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {stocks.map((stock) => {
-                                  const locName = stock.location?.label
-                                    ? stock.location.label
-                                    : stock.locationId
-                                      ? locationsMap[stock.locationId] || `Loc #${stock.locationId}`
-                                      : 'Unassigned'
-
-                                  const expDate = stock.expirationDate
-                                    ? new Date(stock.expirationDate).toLocaleDateString()
-                                    : 'N/A'
-
-                                  return (
-                                    <tr key={stock.id} className="hover:bg-blue-50/30">
-                                      <td className="p-1.5 sm:p-2 font-mono text-gray-600">
-                                        #{stock.id}
-                                      </td>
-                                      <td className="p-1.5 sm:p-2 text-gray-800 font-medium truncate max-w-[100px]">
-                                        {locName}
-                                      </td>
-                                      <td className="p-1.5 sm:p-2 text-center font-bold text-gray-700">
-                                        {stock.quantity}
-                                      </td>
-                                      <td className="p-1.5 sm:p-2 text-gray-600">{expDate}</td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
+                    <ItemsSubTable
+                      item={item}
+                      stocks={stocks}
+                      isArchived={isArchived}
+                      locationsMap={locationsMap}
+                      onUpdateQuantity={onUpdateQuantity}
+                      onUpdateBatchQuantity={onUpdateBatchQuantity}
+                      onOpenBatchUnit={onOpenBatchUnit}
+                      onTransferBatch={onTransferBatch}
+                    />
                   )}
                 </Fragment>
               )

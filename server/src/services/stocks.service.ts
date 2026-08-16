@@ -1,4 +1,5 @@
 import prisma from '../db.js'
+import { Prisma } from '../generated/prisma/client.js'
 
 interface StockTransferData {
   sourceStockId: number
@@ -6,11 +7,39 @@ interface StockTransferData {
   quantityToMove: number
 }
 
+interface UpdateStockQuantityData {
+  stockId: number
+  quantity: number
+}
+
+interface OpenStockUnitData {
+  stockId: number
+}
+
+// Helper utility to keep aggregate parent item quantity in sync
+async function syncParentItemQuantity(tx: Prisma.TransactionClient, itemId: number) {
+  const aggregate = await tx.itemStock.aggregate({
+    where: { itemId },
+    _sum: { quantity: true },
+  })
+
+  const totalQuantity = aggregate._sum.quantity ?? 0
+
+  await tx.item.update({
+    where: { id: itemId },
+    data: {
+      updatedAt: new Date(),
+    },
+  })
+
+  return totalQuantity
+}
+
 export const transferStockService = async ({
   sourceStockId,
   targetLocationId,
   quantityToMove,
-  sourceLocationId, // Optional: if you know which location to move from
+  sourceLocationId,
 }: StockTransferData & { sourceLocationId?: number }) => {
   // 1. Sanitize and validate quantity
   const amount = Number(quantityToMove)
@@ -38,7 +67,7 @@ export const transferStockService = async ({
           itemId: sourceStockId,
           ...(sourceLocId ? { locationId: sourceLocId } : {}),
           deletedAt: null,
-          quantity: { gte: amount }, // Pick batch with enough stock
+          quantity: { gte: amount },
         },
         orderBy: { createdAt: 'asc' }, // FIFO: take from oldest batch
       })
@@ -96,6 +125,121 @@ export const transferStockService = async ({
       })
     }
 
+    await syncParentItemQuantity(tx, sourceStock.itemId)
+
     return updatedSource
+  })
+}
+
+export const updateStockQuantityService = async ({
+  stockId,
+  quantity,
+}: UpdateStockQuantityData) => {
+  return await prisma.$transaction(async (tx) => {
+    const stock = await tx.itemStock.findFirst({
+      where: {
+        id: stockId,
+        deletedAt: null,
+      },
+    })
+
+    if (!stock) {
+      throw new Error(`Stock batch not found with ID ${stockId}`)
+    }
+
+    let updatedStock
+
+    if (quantity <= 0) {
+      // Soft-delete empty batch
+      updatedStock = await tx.itemStock.update({
+        where: { id: stockId },
+        data: {
+          quantity: 0,
+          deletedAt: new Date(),
+        },
+      })
+    } else {
+      updatedStock = await tx.itemStock.update({
+        where: { id: stockId },
+        data: { quantity },
+      })
+    }
+
+    // Recalculate parent item total quantity
+    await syncParentItemQuantity(tx, stock.itemId)
+
+    return updatedStock
+  })
+}
+
+export const openStockUnitService = async ({ stockId }: OpenStockUnitData) => {
+  return await prisma.$transaction(async (tx) => {
+    const stock = await tx.itemStock.findFirst({
+      where: {
+        id: stockId,
+        deletedAt: null,
+      },
+    })
+
+    if (!stock) {
+      throw new Error(`Stock batch not found with ID ${stockId}`)
+    }
+
+    if (stock.quantity < 1) {
+      throw new Error('Cannot open a unit from an empty stock batch')
+    }
+
+    if (stock.openedOn) {
+      throw new Error('This batch is already marked as opened')
+    }
+
+    const now = new Date()
+    let resultStock
+
+    if (stock.quantity === 1) {
+      // Single unit batch: mark opened directly
+      resultStock = await tx.itemStock.update({
+        where: { id: stockId },
+        data: { openedOn: now },
+      })
+    } else {
+      // Split batch: decrement unopened batch by 1
+      await tx.itemStock.update({
+        where: { id: stockId },
+        data: { quantity: stock.quantity - 1 },
+      })
+
+      // Check if an opened batch already exists for this item/location/expiry
+      const existingOpenedStock = await tx.itemStock.findFirst({
+        where: {
+          itemId: stock.itemId,
+          locationId: stock.locationId,
+          expirationDate: stock.expirationDate,
+          openedOn: { not: null },
+          deletedAt: null,
+        },
+      })
+
+      if (existingOpenedStock) {
+        resultStock = await tx.itemStock.update({
+          where: { id: existingOpenedStock.id },
+          data: { quantity: { increment: 1 } },
+        })
+      } else {
+        resultStock = await tx.itemStock.create({
+          data: {
+            itemId: stock.itemId,
+            locationId: stock.locationId,
+            expirationDate: stock.expirationDate,
+            quantity: 1,
+            openedOn: now,
+          },
+        })
+      }
+    }
+
+    await syncParentItemQuantity(tx, stock.itemId)
+
+    return resultStock
   })
 }

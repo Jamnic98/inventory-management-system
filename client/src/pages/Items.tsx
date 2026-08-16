@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 import {
@@ -9,10 +9,9 @@ import {
   ItemTransferModal,
   ItemDetailsModal,
 } from '../components'
-import { getLocations, transferItem } from '../api'
-import { useAuth } from '../hooks/useAuth'
-import { useItems, useUpdateItemQuantity } from '../hooks/useItems'
-import type { Location, Item, ItemFilters } from '../types'
+import { getLocations } from '../api'
+import { useAuth, useBatchMutations, useItems, useUpdateItemQuantity } from '../hooks'
+import type { Location, Item, ItemFilters, ItemStock } from '../types'
 
 const DEFAULT_FILTERS: ItemFilters = {
   search: '',
@@ -41,6 +40,8 @@ const getEffectiveExpiration = (item: Item): Date | null => {
 export default function Items() {
   const { user } = useAuth()
   const currentUserId = user?.id
+  const { updateBatchQtyMutation, openBatchUnitMutation, transferBatchMutation } =
+    useBatchMutations()
 
   // Pagination & Filter State
   const [page, setPage] = useState<number>(1)
@@ -49,26 +50,33 @@ export default function Items() {
 
   // Modal & Selected Item States
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
-  const [transferringItem, setTransferringItem] = useState<Item | null>(null)
+  const [transferringStock, setTransferringStock] = useState<{
+    stock: ItemStock
+    item: Item
+  } | null>(null)
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
 
-  // 🚀 Debounced search term for API queries
+  // Debounced search term for API queries
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search)
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(filters.search)
-    }, 300) // 300ms delay before triggering server search
+    }, 300)
 
     return () => clearTimeout(handler)
   }, [filters.search])
 
-  // 🚀 Server-Paginated Items Query
+  // Reset to page 1 whenever debounced search changes
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
+
+  // Server-Paginated Items Query
   const {
     data,
-    // TODO: replace deprecated
-    isInitialLoading: isLoadingItems,
-    // isFetching,
+    isLoading: isLoadingItems,
+    isFetching,
   } = useItems({
     page,
     limit: pageSize,
@@ -79,8 +87,11 @@ export default function Items() {
   const items = data?.data || []
   const pagination = data?.pagination
 
-  // 🚀 Hook for Quantity Mutations
+  // Hook for Item-Level Quantity Mutations
   const updateQuantityMutation = useUpdateItemQuantity()
+  const handleUpdateQuantity = (id: number, newQuantity: number) => {
+    updateQuantityMutation.mutate({ id, quantity: newQuantity })
+  }
 
   // Locations Query
   const { data: locations = [], isLoading: isLoadingLocations } = useQuery({
@@ -88,19 +99,8 @@ export default function Items() {
     queryFn: getLocations,
   })
 
-  // Only block the UI on INITIAL page load, not during search refetches!
+  // Only block the UI on INITIAL load
   const isInitialLoad = (isLoadingItems && !data) || isLoadingLocations
-
-  // Handle filter changes (Resets to Page 1)
-  const handleFilterChange = (newFilters: ItemFilters) => {
-    setFilters(newFilters)
-    setPage(1)
-  }
-
-  const handleResetFilters = () => {
-    setFilters(DEFAULT_FILTERS)
-    setPage(1)
-  }
 
   // Map locations by ID for quick table lookup
   const locationsMap = useMemo(() => {
@@ -119,7 +119,7 @@ export default function Items() {
       .map((loc) => ({ id: loc.id, label: loc.label }))
   }, [locations])
 
-  // Process client-side filters (low stock / expiry / client sorting) on current page dataset
+  // Client-side filtering & sorting on current page dataset
   const processedItems = useMemo(() => {
     if (!items) return []
 
@@ -185,25 +185,33 @@ export default function Items() {
       })
   }, [items, filters])
 
-  // Trigger Optimistic Quantity Update Mutation
-  const handleUpdateQuantity = (id: number, newQuantity: number) => {
-    updateQuantityMutation.mutate({ id, quantity: newQuantity })
+  // Handlers
+  const handleFilterChange = (newFilters: ItemFilters) => {
+    setFilters(newFilters)
+    setPage(1)
   }
 
-  // Handle item transfer submit
-  const handleTransferSubmit = async (
-    itemId: number,
-    targetLocationId: number,
-    transferQty: number
-  ) => {
-    try {
-      if (transferItem) {
-        await transferItem(itemId, targetLocationId, transferQty)
-      }
-    } catch (error) {
-      console.error('Failed to transfer item:', error)
-      throw error
-    }
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setPage(1)
+  }
+
+  const handleUpdateBatchQuantity = (stockId: number, newQuantity: number) => {
+    updateBatchQtyMutation.mutate({ stockId, quantity: newQuantity })
+  }
+
+  const handleOpenBatchUnit = (stockId: number) => {
+    openBatchUnitMutation.mutate(stockId)
+  }
+
+  const handleTransferSubmit = async (targetLocationId: number, transferQty: number) => {
+    if (!transferringStock) return
+    await transferBatchMutation.mutateAsync({
+      stockId: transferringStock.stock.id,
+      targetLocationId,
+      quantity: transferQty,
+    })
+    setTransferringStock(null)
   }
 
   if (isInitialLoad) {
@@ -212,15 +220,12 @@ export default function Items() {
 
   return (
     <div className="space-y-4">
-      {/* PRIMARY PAGE HEADER WITH ADD BUTTON */}
+      {/* PAGE HEADER */}
       <div className="flex justify-between items-center pb-2 border-b">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             Items
-            {/* TODO: replace with loader */}
-            {/*             {isFetching && (
-              <span className="text-xs font-normal text-blue-600 animate-pulse">Updating...</span>
-            )} */}
+            {isFetching && <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
           </h1>
           <p className="text-xs text-gray-500">
             Showing {items.length} of {pagination?.totalItems || 0} total items
@@ -234,7 +239,6 @@ export default function Items() {
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Item</span>
-          <span className="sm:hidden">Add</span>
         </button>
       </div>
 
@@ -246,7 +250,7 @@ export default function Items() {
         onReset={handleResetFilters}
       />
 
-      {/* SERVER-PAGINATED ITEMS TABLE */}
+      {/* ITEMS TABLE */}
       <ItemsTable
         items={processedItems}
         totalItems={pagination?.totalItems || 0}
@@ -259,8 +263,10 @@ export default function Items() {
         }}
         locationsMap={locationsMap}
         onUpdateQuantity={handleUpdateQuantity}
+        onUpdateBatchQuantity={handleUpdateBatchQuantity}
         onSelectItem={(item: Item) => setSelectedItem(item)}
-        onTransferItem={(item: Item) => setTransferringItem(item)}
+        onOpenBatchUnit={handleOpenBatchUnit}
+        onTransferBatch={(stock, parentItem) => setTransferringStock({ stock, item: parentItem })}
       />
 
       {/* ADD ITEM MODAL */}
@@ -268,13 +274,13 @@ export default function Items() {
         <ItemFormModal
           isOpen={isAddOpen}
           locations={locations}
-          initialBarcode={''}
+          initialBarcode=""
           currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
         />
       )}
 
-      {/* Details Modal */}
+      {/* DETAILS MODAL */}
       {selectedItem && (
         <ItemDetailsModal
           item={selectedItem}
@@ -284,13 +290,17 @@ export default function Items() {
       )}
 
       {/* ITEM TRANSFER MODAL */}
-      <ItemTransferModal
-        isOpen={Boolean(transferringItem)}
-        item={transferringItem}
-        locations={locationOptions}
-        onClose={() => setTransferringItem(null)}
-        onTransfer={handleTransferSubmit}
-      />
+      {transferringStock && (
+        <ItemTransferModal
+          isOpen={Boolean(transferringStock)}
+          item={transferringStock.item}
+          stock={transferringStock.stock}
+          locations={locationOptions}
+          isLoading={transferBatchMutation.isPending}
+          onClose={() => setTransferringStock(null)}
+          onTransfer={(targetLocId, qty) => handleTransferSubmit(targetLocId, qty)}
+        />
+      )}
     </div>
   )
 }

@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react'
 
-import { Modal } from '../../components'
-import type { LocationOption, Item } from '../../types'
+import { Modal, Select } from '../../components'
+import type { LocationOption, Item, ItemStock } from '../../types'
 import { useAlert } from '../../hooks'
 
 export interface ItemTransferModalProps {
   isOpen: boolean
-  item: Item | null
+  item?: Item | null
+  stock?: ItemStock | null
   locations: LocationOption[]
+  isLoading?: boolean
   onClose: () => void
-  onTransfer: (itemId: number, targetLocationId: number, quantity: number) => Promise<void> | void
+  onTransfer: (targetLocationId: number, quantity: number) => Promise<void> | void
 }
 
 export default function ItemTransferModal({
   isOpen,
   item,
+  stock,
   locations,
+  isLoading = false,
   onClose,
   onTransfer,
 }: ItemTransferModalProps) {
@@ -24,50 +28,63 @@ export default function ItemTransferModal({
   const [quantity, setQuantity] = useState<number>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Reset form inputs whenever a new item is selected or modal opens
+  // Reset form inputs whenever modal opens or stock batch changes
   useEffect(() => {
-    if (isOpen && item) {
+    if (isOpen && stock) {
       setTargetLocationId('')
       setQuantity(1)
       setIsSubmitting(false)
     }
-  }, [isOpen, item])
+  }, [isOpen, stock])
 
-  if (!item) return null
+  if (!item || !stock) return null
 
-  // Exclude current location from target choices
-  const availableLocations = locations.filter((loc) => loc.id !== item.locationId)
+  // Exclude current batch location from destination choices
+  const availableLocations = locations.filter((loc) => loc.id !== stock.locationId)
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
+  const isPending = isSubmitting || isLoading
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!targetLocationId) {
       error('Please select a destination location.')
       return
     }
 
     const qty = Number(quantity)
-    if (isNaN(qty) || qty <= 0 || qty > item.quantity) {
-      error(`Quantity must be between 1 and ${item.quantity}.`)
+    if (isNaN(qty) || qty <= 0 || qty > stock.quantity) {
+      error(`Quantity must be between 1 and ${stock.quantity}.`)
       return
     }
 
     try {
       setIsSubmitting(true)
-      await onTransfer(item.id!, Number(targetLocationId), qty)
+      await onTransfer(Number(targetLocationId), qty)
       onClose()
     } catch (err: any) {
-      error(err?.message || 'Failed to transfer item. Please try again.')
+      error(err?.message || 'Failed to transfer stock batch. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <Modal isOpen={isOpen} title={`Transfer ${item.label || 'Item'}`} onClose={onClose}>
-      <p className="text-xs text-gray-500">
-        Available stock in current location:{' '}
-        <span className="font-semibold text-gray-800">{item.quantity}</span>
-      </p>
+    <Modal isOpen={isOpen} title={`Transfer Batch: ${item.label || 'Item'}`} onClose={onClose}>
+      <div className="space-y-1 text-xs text-gray-500">
+        <p>
+          Available batch quantity:{' '}
+          <span className="font-semibold text-gray-800">{stock.quantity}</span>
+        </p>
+        {stock.expirationDate && (
+          <p>
+            Expiration:{' '}
+            <span className="font-medium text-gray-700">
+              {new Date(stock.expirationDate).toLocaleDateString()}
+            </span>
+          </p>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         {/* Destination Location */}
@@ -75,20 +92,16 @@ export default function ItemTransferModal({
           <label className="block text-xs font-semibold text-gray-700 mb-1">
             Destination Location
           </label>
-          <select
+          <Select<number | ''>
+            options={availableLocations.map((loc) => ({
+              value: loc.id,
+              label: loc.label,
+            }))}
             value={targetLocationId}
-            onChange={(e) => setTargetLocationId(Number(e.target.value) || '')}
-            className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-            required
-            disabled={isSubmitting}
-          >
-            <option value="">Select destination...</option>
-            {availableLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setTargetLocationId(val)}
+            placeholder="Select destination..."
+            disabled={isPending}
+          />
         </div>
 
         {/* Transfer Quantity */}
@@ -97,12 +110,12 @@ export default function ItemTransferModal({
           <input
             type="number"
             min={1}
-            max={item.quantity}
+            max={stock.quantity}
             value={quantity}
             onChange={(e) => setQuantity(Number(e.target.value))}
             className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
             required
-            disabled={isSubmitting}
+            disabled={isPending}
           />
         </div>
 
@@ -111,17 +124,17 @@ export default function ItemTransferModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isPending}
             className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded border border-gray-300 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={isSubmitting || availableLocations.length === 0}
+            disabled={isPending || availableLocations.length === 0}
             className="px-3 py-1.5 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Transferring...' : 'Confirm Transfer'}
+            {isPending ? 'Transferring...' : 'Confirm Transfer'}
           </button>
         </div>
       </form>

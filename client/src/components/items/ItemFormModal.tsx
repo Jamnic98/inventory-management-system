@@ -11,19 +11,10 @@ import {
 } from 'lucide-react'
 
 import { BarcodeScanner, Modal, Select } from '..'
-import { AlertContext } from '../../context/AlertContext' // Adjust relative path to where AlertContext is stored
+import { AlertContext } from '../../context/AlertContext'
 import { useCreateItem, useItemByBarcode, useRestoreItem, useUpdateItem } from '../../hooks'
 import type { Location } from '../../types'
-
-// TODO: move
-// Helper to safely convert Date / ISO string to YYYY-MM-DD for <input type="date" />
-export const formatDateForInput = (dateVal?: string | Date | null): string => {
-  if (!dateVal) return ''
-  const dateObj = typeof dateVal === 'string' ? new Date(dateVal) : dateVal
-  if (isNaN(dateObj.getTime())) return '' // Prevents invalid date crashes
-
-  return dateObj.toISOString().split('T')[0]
-}
+import { formatDateForInput } from '../../utils/itemHelpers'
 
 interface ItemFormModalProps {
   isOpen: boolean

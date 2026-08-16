@@ -138,7 +138,7 @@ export default function ItemDetailsModal({
               Access Level
             </span>
             <p className="font-semibold text-slate-900">
-              {item.userId ? 'Personal / Private' : 'Shared (Household)'}
+              {item.userId ? 'Private' : 'Shared (Household)'}
             </p>
           </div>
         </div>

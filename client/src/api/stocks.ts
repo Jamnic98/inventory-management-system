@@ -7,18 +7,14 @@ export interface TransferStockPayload {
 }
 
 /**
- * Transfer a quantity of a specific stock batch to a new location.
- * POST /stocks/:stockId/transfer
+ * Update the quantity of a specific stock batch
+ * PATCH /stocks/:stockId
  */
-export const transferStock = async (
+export const updateBatchQuantity = async (
   stockId: number | string,
-  targetLocationId: number,
   quantity: number
 ): Promise<ItemStock> => {
-  return apiClient.post<ItemStock>(`/stocks/${stockId}/transfer`, {
-    targetLocationId,
-    quantity,
-  } satisfies TransferStockPayload)
+  return apiClient.patch<ItemStock>(`/stocks/${stockId}`, { quantity })
 }
 
 /**
@@ -33,14 +29,35 @@ export const updateStockBatch = async (
 }
 
 /**
+ * Open a unit from a specific stock batch
+ * POST /stocks/:stockId/open
+ */
+export const openBatchUnit = async (stockId: number | string): Promise<ItemStock> => {
+  return apiClient.post<ItemStock>(`/stocks/${stockId}/open`)
+}
+
+/**
+ * Transfer a quantity of a specific stock batch to a new location.
+ * POST /stocks/:stockId/transfer
+ */
+export const transferBatch = async (
+  stockId: number | string,
+  targetLocationId: number,
+  quantity: number
+): Promise<ItemStock> => {
+  return apiClient.post<ItemStock>(`/stocks/${stockId}/transfer`, {
+    targetLocationId,
+    quantity,
+  } satisfies TransferStockPayload)
+}
+
+// Alias for backwards compatibility if referenced elsewhere as `transferStock`
+export const transferStock = transferBatch
+
+/**
  * Delete / consume a specific stock batch without removing the whole catalog item
  * DELETE /stocks/:stockId
  */
 export const deleteStockBatch = async (stockId: number | string): Promise<void> => {
   await apiClient.delete(`/stocks/${stockId}`)
 }
-
-/**
- * Legacy / Alias helper if your components still call transferItem
- */
-export const transferItem = transferStock

@@ -115,7 +115,7 @@ export default function LocationContent({
                   <div
                     key={sub.id}
                     onClick={() => handleSelect(sub.id)}
-                    className="p-3 rounded-md border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50 cursor-pointer transition flex items-center justify-between"
+                    className="p-2 rounded-md border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50 cursor-pointer transition flex items-center justify-between"
                   >
                     <span className="text-sm font-medium text-gray-800 truncate">{sub.label}</span>
                     <span className="text-xs text-gray-400 font-mono">

@@ -42,7 +42,7 @@ export function useItems(params?: GetItemsParams) {
   return useQuery({
     queryKey: ['items', params],
     queryFn: () => (params ? getItems(params) : null),
-    enabled: Boolean(params), // 🚀 Prevents query from running when params is undefined
+    enabled: Boolean(params),
     placeholderData: (previousData) => previousData,
   })
 }
