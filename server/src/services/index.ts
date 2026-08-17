@@ -1,3 +1,5 @@
 export * from './dashboard.service.js'
+export * from './email.service.js'
+export * from './expirationCron.service.js'
 export * from './notification.service.js'
 export * from './stocks.service.js'

@@ -4,8 +4,9 @@ import dotenv from 'dotenv'
 
 import app from './server.js'
 import prisma from './db.js'
-import { sendNotificationEmail } from './mailer.js'
+
 import seedDatabase from './utils/database.js'
+import { sendNotificationEmail } from './services/email.service.js'
 
 dotenv.config()
 
@@ -49,15 +50,6 @@ wsServer.on('connection', (ws) => {
   ws.on('message', (rawMessage) => {
     try {
       const messageObj = JSON.parse(String(rawMessage))
-      const { type } = messageObj
-
-      console.log(type)
-
-      if (type === 'email') {
-        const { subject, content, recipients } = messageObj
-        sendNotificationEmail(subject, content, recipients)
-        return
-      }
 
       // If a WS message arrives, broadcast to all other clients
       wsServer.clients.forEach((client) => {

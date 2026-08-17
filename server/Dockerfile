@@ -4,15 +4,20 @@
 FROM node:24-slim AS build
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Install openssl for Prisma build step
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Copy source code and Prisma schema
+COPY package*.json ./
+RUN npm ci
+
 COPY . .
 
-# Generate Prisma Client BEFORE compiling TypeScript
+# Generate Prisma Client and compile TypeScript
 RUN npx prisma generate
 RUN npm run build
+
+# Prune devDependencies to keep image size small
+RUN npm prune --omit=dev
 
 # --------------------------------------
 # Production Stage
@@ -20,25 +25,21 @@ RUN npm run build
 FROM node:24-slim AS production
 WORKDIR /app
 
+# Install OpenSSL required by Prisma engine at runtime
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-# Install production dependencies
-RUN npm ci --omit=dev --ignore-scripts
 
-# Copy Prisma schema and config
-COPY prisma.config.ts ./
-COPY prisma ./prisma
-
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
-
-RUN npx prisma generate
-
-# Copy compiled TS output (includes compiled dist/prisma/seed.js) and generated client
+# Copy pre-pruned node_modules, compiled code, and Prisma schema from build stage
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/prisma.config.ts ./prisma.config.ts
+
+# Copy custom generated client directory if configured in schema.prisma
 COPY --from=build /app/src/generated ./src/generated
 
-# Copy and set up the entrypoint script
+# Setup entrypoint script
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

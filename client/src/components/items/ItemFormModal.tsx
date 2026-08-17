@@ -1,14 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useContext } from 'react'
-import {
-  Camera,
-  Clock,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  ScanLine,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react'
+import { Camera, Clock, ChevronDown, ChevronUp, Lock, ScanLine, RefreshCw } from 'lucide-react'
 
 import { BarcodeScanner, Modal, Select } from '..'
 import { AlertContext } from '../../context/AlertContext'

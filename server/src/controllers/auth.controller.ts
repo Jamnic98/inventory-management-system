@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken'
 
 import prisma from '../db.js'
 import handlePrismaError from '../middleware/prismaErrorHandler.js'
+import { sendMagicLinkEmail } from '../services/email.service.js'
 import { parseId } from '../utils/index.js'
-import { sendMagicLinkEmail } from '../mailer.js'
 
 // GET /api/v1/auth/login?token=...
 export const loginWithToken = async (

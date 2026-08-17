@@ -21,6 +21,7 @@ model User {
   locations             Location[]             // Personal locations owned by this user
   items                 Item[]                 // Catalog items created by this user
   locationSubscriptions LocationSubscription[] // Subscriptions
+  notifications         Notification[]
   settings              UserSettings?
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -161,4 +162,25 @@ model ItemStock {
   @@index([expirationDate])
   @@index([deletedAt])
   @@map("item_stocks")
+}
+
+// -------------------------------------------------------------
+// Notifications
+// -------------------------------------------------------------
+model Notification {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title      String
+  message    String
+  isRead     Boolean  @default(false) @map("is_read")
+  
+  itemId     Int?     @map("item_id")
+  locationId Int?     @map("location_id")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("notifications")
 }

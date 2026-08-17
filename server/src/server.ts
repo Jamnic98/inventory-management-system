@@ -7,6 +7,7 @@ import {
   DashBoardRoute,
   Items,
   Locations,
+  Notifications,
   Stocks,
   Subscriptions,
   Users,
@@ -45,6 +46,7 @@ app.use('/api/v1/auth', AuthRoute)
 app.use('/api/v1/dashboard', DashBoardRoute)
 app.use('/api/v1/items', Items)
 app.use('/api/v1/locations', Locations)
+app.use('/api/v1/notifications', Notifications)
 app.use('/api/v1/stocks', Stocks)
 app.use('/api/v1/subscriptions', Subscriptions)
 app.use('/api/v1/users', Users)
