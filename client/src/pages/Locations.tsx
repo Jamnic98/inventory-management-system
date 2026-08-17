@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Lock, Globe, Bell, BellOff, AlertTriangle, Clock } from 'lucide-react'
 
 import { LocationContent, LocationFormModal, LocationSidebar } from '../components/locations'
 import { useItems, useLocations, useDeleteLocation, useAlert } from '../hooks'
 import { buildLocationTree } from '../utils/locationTree'
 import type { Item, Location } from '../types'
 import { ItemDetailsModal } from '../components'
+
+// Extended location type containing optional notification fields
+type ExtendedLocation = Location & {
+  notifyExpiring?: boolean
+  notifyLowStock?: boolean
+}
 
 export default function Locations() {
   const alert = useAlert()
@@ -17,7 +24,7 @@ export default function Locations() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalParentId, setModalParentId] = useState<number | null>(null)
-  const [locationToEdit, setLocationToEdit] = useState<Location | null>(null)
+  const [locationToEdit, setLocationToEdit] = useState<ExtendedLocation | null>(null)
 
   // Item Modal State (for clicking an item inside a location's item table)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
@@ -26,7 +33,7 @@ export default function Locations() {
   const { data: locations = [], isLoading: isLoadingLocs, isError: isErrorLocs } = useLocations()
   const { mutate: deleteLocation, isPending: isDeleting } = useDeleteLocation()
 
-  // 🚀 Fetch items scoped specifically to the selected location
+  // Fetch items scoped specifically to the selected location
   const { data: itemsResponse, isLoading: isLoadingItems } = useItems(
     selectedId ? { locationId: Number(selectedId), limit: 100 } : undefined
   )
@@ -38,14 +45,12 @@ export default function Locations() {
   }, [itemsResponse])
 
   // Map item counts per location ID
-  // Note: Ideally, count should come from location._count.items on backend location object
   const itemCountsMap = useMemo(() => {
     const map = new Map<number | string, number>()
     for (const loc of locations) {
-      // Safely extract count from Prisma's _count.stocks (or _count.items depending on API shape)
       const count = (loc as any)._count?.stocks ?? (loc as any)._count?.items ?? 0
       map.set(loc.id, count)
-      map.set(String(loc.id), count) // set both String and Number keys to avoid type mismatch
+      map.set(String(loc.id), count)
     }
     return map
   }, [locations])
@@ -63,7 +68,8 @@ export default function Locations() {
 
   // Active selected location details
   const selectedLocation = useMemo(
-    () => locations.find((loc) => String(loc.id) === String(selectedId)) || null,
+    () =>
+      (locations.find((loc) => String(loc.id) === String(selectedId)) as ExtendedLocation) || null,
     [locations, selectedId]
   )
 
@@ -78,6 +84,22 @@ export default function Locations() {
     if (!selectedLocation) return []
     return locations.filter((loc) => String(loc.parentId) === String(selectedLocation.id))
   }, [locations, selectedLocation])
+
+  // Helpers to derive status properties for "At-a-Glance" display
+  const locationMeta = useMemo(() => {
+    if (!selectedLocation) return null
+
+    const isPrivate = selectedLocation.userId !== null && selectedLocation.userId !== undefined
+    const notifyExpiring = selectedLocation.notifyExpiring ?? true
+    const notifyLowStock = selectedLocation.notifyLowStock ?? true
+
+    return {
+      isPrivate,
+      notifyExpiring,
+      notifyLowStock,
+      hasAnyNotification: notifyExpiring || notifyLowStock,
+    }
+  }, [selectedLocation])
 
   // Handler for selecting a location node
   const handleSelect = (id: number | string) => {
@@ -126,7 +148,7 @@ export default function Locations() {
     if (window.confirm(confirmMsg)) {
       deleteLocation(selectedLocation.id, {
         onSuccess: () => {
-          setSearchParams({}) // Clear selection after deletion
+          setSearchParams({})
         },
         onError: (err) => {
           const errorMessage =
@@ -157,7 +179,7 @@ export default function Locations() {
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] w-full overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm">
-      {/* Inner Location Tree Sidebar */}
+      {/* Sidebar: Full screen on mobile when no location selected, desktop 80px side drawer */}
       <div
         className={`w-full md:w-80 shrink-0 border-r border-gray-200 ${
           selectedId ? 'hidden md:block' : 'block'
@@ -173,21 +195,88 @@ export default function Locations() {
         />
       </div>
 
-      <LocationContent
-        selectedId={selectedId}
-        locationItems={locationItems}
-        itemCountsMap={itemCountsMap}
-        subLocations={subLocations}
-        selectedLocation={selectedLocation}
-        parentLocation={parentLocation}
-        onSelectItem={setSelectedItem}
-        handleSelect={handleSelect}
-        handleClearSelection={handleClearSelection}
-        handleAddSubLocation={handleAddSubLocation}
-        handleEditLocation={handleEditLocation}
-        handleDeleteLocation={handleDeleteLocation}
-        isDeleting={isDeleting}
-      />
+      {/* Main Location Workspace: Visible on mobile when location selected, always on desktop */}
+      <div
+        className={`flex-1 flex flex-col min-w-0 overflow-hidden ${
+          !selectedId ? 'hidden md:flex' : 'flex'
+        }`}
+      >
+        {/* At-a-Glance Mobile-Responsive Banner */}
+        {selectedLocation && locationMeta && (
+          <div className="px-3 sm:px-6 py-2.5 bg-gray-50/90 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            {/* Badges Container - Wraps neatly on small screens */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs">
+              {/* Privacy Status */}
+              {locationMeta.isPrivate ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium text-[11px] sm:text-xs">
+                  <Lock className="w-3 h-3 shrink-0" />
+                  <span>Private</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium text-[11px] sm:text-xs">
+                  <Globe className="w-3 h-3 shrink-0" />
+                  <span>Shared</span>
+                </span>
+              )}
+
+              {/* Low Stock Subscription Badge */}
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[11px] sm:text-xs ${
+                  locationMeta.notifyLowStock
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200 line-through opacity-75'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>Low Stock</span>
+              </span>
+
+              {/* Expiration Subscription Badge */}
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[11px] sm:text-xs ${
+                  locationMeta.notifyExpiring
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200 line-through opacity-75'
+                }`}
+              >
+                <Clock className="w-3 h-3 shrink-0" />
+                <span>Expiring</span>
+              </span>
+            </div>
+
+            {/* Notification Summary Flag */}
+            <div className="flex items-center gap-1 text-[11px] sm:text-xs text-gray-500 self-end sm:self-auto shrink-0">
+              {locationMeta.hasAnyNotification ? (
+                <>
+                  <Bell className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="hidden xs:inline">Alerts Active</span>
+                </>
+              ) : (
+                <>
+                  <BellOff className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span>Muted</span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        <LocationContent
+          selectedId={selectedId}
+          locationItems={locationItems}
+          itemCountsMap={itemCountsMap}
+          subLocations={subLocations}
+          selectedLocation={selectedLocation}
+          parentLocation={parentLocation}
+          onSelectItem={setSelectedItem}
+          handleSelect={handleSelect}
+          handleClearSelection={handleClearSelection}
+          handleAddSubLocation={handleAddSubLocation}
+          handleEditLocation={handleEditLocation}
+          handleDeleteLocation={handleDeleteLocation}
+          isDeleting={isDeleting}
+        />
+      </div>
 
       {/* Add / Edit Location Modal */}
       <LocationFormModal

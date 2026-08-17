@@ -164,7 +164,7 @@ export const addLocation = async (req: Request, res: Response): Promise<void> =>
   }
 }
 
-// PATCH /api/v1/locations/:id - Update an existing location
+// PATCH /api/v1/locations/:id - Update an existing location & subscription preferences
 export const updateLocation = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
@@ -174,11 +174,16 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
       return
     }
 
-    // Verify ownership access before updating
+    if (!currentUserId) {
+      res.status(401).json({ error: 'Unauthorized' })
+      return
+    }
+
+    // Verify ownership/access
     const existing = await prisma.location.findFirst({
       where: {
         id: locationId,
-        OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
+        OR: [{ userId: null }, { userId: currentUserId }],
       },
     })
 
@@ -187,9 +192,9 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
       return
     }
 
-    const { label, parentId, isPrivate } = req.body
+    const { label, parentId, isPrivate, notifyExpiring, notifyLowStock } = req.body
 
-    // Prevent a location from becoming its own parent
+    // Prevent cyclic parent setup
     if (parentId !== undefined && parentId !== null) {
       const parsedParent = parseId(parentId)
       if (parsedParent === locationId) {
@@ -199,23 +204,60 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
     }
 
     const updateData: Prisma.LocationUpdateInput = {}
-
     if (label !== undefined) updateData.label = String(label).trim()
     if (parentId !== undefined) {
       updateData.parent = parentId ? { connect: { id: parseId(parentId) } } : { disconnect: true }
     }
     if (isPrivate !== undefined) {
-      updateData.user =
-        isPrivate && currentUserId ? { connect: { id: currentUserId } } : { disconnect: true }
+      updateData.user = isPrivate ? { connect: { id: currentUserId } } : { disconnect: true }
     }
 
-    const updatedLocation = await prisma.location.update({
-      where: { id: locationId },
-      data: updateData,
-      include: {
-        parent: true,
-        children: true,
-      },
+    // Perform atomic update for location and notification settings
+    const updatedLocation = await prisma.$transaction(async (tx) => {
+      const loc = await tx.location.update({
+        where: { id: locationId },
+        data: updateData,
+        include: {
+          parent: true,
+          children: true,
+        },
+      })
+
+      // Sync notification subscription if notification toggles are sent in payload
+      if (notifyExpiring !== undefined || notifyLowStock !== undefined) {
+        const isSubscribed = Boolean(notifyExpiring || notifyLowStock)
+
+        if (isSubscribed) {
+          await tx.locationSubscription.upsert({
+            where: {
+              userId_locationId: {
+                userId: currentUserId,
+                locationId,
+              },
+            },
+            create: {
+              userId: currentUserId,
+              locationId,
+              notifyExpiring: notifyExpiring ?? true,
+              notifyLowStock: notifyLowStock ?? true,
+            },
+            update: {
+              ...(notifyExpiring !== undefined && { notifyExpiring }),
+              ...(notifyLowStock !== undefined && { notifyLowStock }),
+            },
+          })
+        } else {
+          // Remove subscription record if both toggles are disabled
+          await tx.locationSubscription.deleteMany({
+            where: {
+              userId: currentUserId,
+              locationId,
+            },
+          })
+        }
+      }
+
+      return loc
     })
 
     broadcast({ type: 'location:updated', id: locationId })

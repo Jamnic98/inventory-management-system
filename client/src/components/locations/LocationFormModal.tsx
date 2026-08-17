@@ -7,8 +7,8 @@ import { useCreateLocation, useUpdateLocation } from '../../hooks/useLocations'
 interface LocationFormModalProps {
   isOpen: boolean
   locations: Location[]
-  initialParentId?: number | null // Pre-fills parent when adding a sub-location
-  locationToEdit?: Location | null // If provided, modal operates in EDIT mode
+  initialParentId?: number | null
+  locationToEdit?: (Location & { notifyExpiring?: boolean; notifyLowStock?: boolean }) | null
   onClose: () => void
   onLocationAdded?: (newLocation: Location) => void
 }
@@ -35,13 +35,16 @@ export default function LocationFormModal({
   const [error, setError] = useState<string | null>(null)
   const [isPrivate, setIsPrivate] = useState<boolean>(true)
 
+  // Notification preference states
+  const [notifyExpiring, setNotifyExpiring] = useState<boolean>(true)
+  const [notifyLowStock, setNotifyLowStock] = useState<boolean>(true)
+
   const { mutate: createLocation, isPending: isCreating } = useCreateLocation()
   const { mutate: updateLocation, isPending: isUpdating } = useUpdateLocation()
 
   const isPending = isCreating || isUpdating
   const isEditMode = Boolean(locationToEdit)
 
-  // Sync state whenever modal opens or switching between add/edit modes
   useEffect(() => {
     if (isOpen) {
       if (locationToEdit) {
@@ -50,18 +53,21 @@ export default function LocationFormModal({
           parentId: locationToEdit.parentId ? Number(locationToEdit.parentId) : null,
         })
         setIsPrivate(locationToEdit.userId !== null && locationToEdit.userId !== undefined)
+        setNotifyExpiring(locationToEdit.notifyExpiring ?? true)
+        setNotifyLowStock(locationToEdit.notifyLowStock ?? true)
       } else {
         setForm({
           ...INITIAL_FORM,
           parentId: initialParentId ? Number(initialParentId) : null,
         })
-        setIsPrivate(true) // 🔒 Private by default for new locations
+        setIsPrivate(true)
+        setNotifyExpiring(true)
+        setNotifyLowStock(true)
       }
       setError(null)
     }
   }, [isOpen, initialParentId, locationToEdit])
 
-  // If creating a sub-location, inherit privacy from the selected parent location
   useEffect(() => {
     if (isOpen && !locationToEdit && initialParentId && locations.length > 0) {
       const parentLoc = locations.find((l) => l.id === initialParentId)
@@ -71,17 +77,15 @@ export default function LocationFormModal({
     }
   }, [isOpen, initialParentId, locations, locationToEdit])
 
-  // Get all descendant IDs of a location to prevent cyclic relationships
   const invalidParentIds = useMemo(() => {
     if (!isEditMode || !locationToEdit) return new Set<number>()
 
     const set = new Set<number>([locationToEdit.id])
-
     const addChildren = (parentId: number) => {
       locations.forEach((loc) => {
         if (loc.parentId === parentId) {
           set.add(loc.id)
-          addChildren(loc.id) // Recurse through descendants
+          addChildren(loc.id)
         }
       })
     }
@@ -90,12 +94,10 @@ export default function LocationFormModal({
     return set
   }, [locations, locationToEdit, isEditMode])
 
-  // Filter out self AND descendants from valid parent list
   const validParentLocations = useMemo(() => {
     return locations.filter((loc) => !invalidParentIds.has(loc.id))
   }, [locations, invalidParentIds])
 
-  // Memoized options list formatted for the Select component
   const parentOptions = useMemo(() => {
     return [
       { value: '', label: 'None (Top-Level Root Location)' },
@@ -120,11 +122,12 @@ export default function LocationFormModal({
 
     setError(null)
 
-    // 🚀 Included isPrivate in the payload sent to the backend
     const payload = {
       label: form.label.trim(),
       parentId: form.parentId ? Number(form.parentId) : null,
       isPrivate,
+      notifyExpiring,
+      notifyLowStock,
     }
 
     if (isEditMode && locationToEdit) {
@@ -171,15 +174,13 @@ export default function LocationFormModal({
 
   return (
     <Modal isOpen={isOpen} title={getModalTitle()} onClose={onClose}>
-      {/* Error Alert */}
       {error && (
         <div className="p-2 mb-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
           {error}
         </div>
       )}
 
-      {/* Form Body */}
-      <form onSubmit={handleSubmit} className="space-y-3 text-sm w-full max-w-full overflow-hidden">
+      <form onSubmit={handleSubmit} className="space-y-4 text-sm w-full max-w-full overflow-hidden">
         {/* Location Name */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -207,7 +208,7 @@ export default function LocationFormModal({
           />
         </div>
 
-        {/* Privacy Checkbox Toggle */}
+        {/* Access Settings Section */}
         <div className="pt-2 border-t border-gray-100">
           <label className="flex items-start gap-3 cursor-pointer select-none">
             <input
@@ -222,6 +223,43 @@ export default function LocationFormModal({
                 {isPrivate
                   ? 'Only you can view and manage items stored in this location.'
                   : 'Shared with everyone in your household/workspace.'}
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Notification Subscriptions Section */}
+        <div className="pt-3 border-t border-gray-100 space-y-2">
+          <span className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+            Notification Subscriptions
+          </span>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={notifyLowStock}
+              onChange={(e) => setNotifyLowStock(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-800">Low Stock Alerts</span>
+              <p className="text-xs text-gray-500">
+                Get notified when items in this location drop below their restock threshold.
+              </p>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={notifyExpiring}
+              onChange={(e) => setNotifyExpiring(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-800">Expiration Alerts</span>
+              <p className="text-xs text-gray-500">
+                Get notified when items in this location are close to or past expiration.
               </p>
             </div>
           </label>

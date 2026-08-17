@@ -4,9 +4,7 @@ import dotenv from 'dotenv'
 
 import app from './server.js'
 import prisma from './db.js'
-
 import seedDatabase from './utils/database.js'
-import { sendNotificationEmail } from './services/email.service.js'
 
 dotenv.config()
 
