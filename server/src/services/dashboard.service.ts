@@ -42,23 +42,29 @@ export async function getHomeDashboardData(userId: number) {
     .sort((a, b) => a.daysRemaining - b.daysRemaining)
 
   // 2. Quick Grocery / Restock List
+  // 2. Quick Grocery / Restock List
   const allItems = await prisma.item.findMany({
     where: { userId },
     include: { stocks: { select: { quantity: true } } },
   })
 
   const restockList = allItems
+    // Ignore items that do not have an explicit lowStockThreshold set
+    .filter((item) => item.lowStockThreshold !== null && item.lowStockThreshold !== undefined)
     .map((item) => {
       const totalQty = item.stocks.reduce((acc, s) => acc + s.quantity, 0)
+      const threshold = item.lowStockThreshold!
+
       return {
         id: item.id,
         label: item.label,
         currentQty: totalQty,
-        threshold: item.lowStockThreshold ?? 1,
+        threshold,
         isOutOfStock: totalQty === 0,
+        needsRestock: totalQty <= threshold,
       }
     })
-    .filter((item) => item.currentQty <= item.threshold)
+    .filter((item) => item.needsRestock)
     .sort((a, b) => a.currentQty - b.currentQty)
 
   // 3. Location Summary Cards

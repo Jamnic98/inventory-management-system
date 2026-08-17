@@ -1,5 +1,13 @@
 import nodemailer from 'nodemailer'
 
+interface RestockEmailItem {
+  label: string
+  currentQty: number
+  threshold: number
+  isOutOfStock: boolean
+  locationName?: string
+}
+
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT) || 587,
@@ -56,6 +64,68 @@ export const sendNotificationEmail = async (toEmail: string, subject: string, me
       <div style="font-family: sans-serif; padding: 20px; color: #111;">
         <h3>${subject}</h3>
         <p style="font-size: 14px; line-height: 1.5;">${message}</p>
+      </div>
+    `,
+  })
+}
+
+export const sendRestockListEmail = async (
+  toEmail: string,
+  senderName: string,
+  items: RestockEmailItem[]
+) => {
+  const fromName = process.env.EMAIL_FROM_NAME || 'Inventory Management System'
+
+  const itemsHtml = items
+    .map(
+      (item) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${item.label}</td>
+        <td style="padding: 10px 12px; color: #64748b;">${item.locationName || 'Unassigned'}</td>
+        <td style="padding: 10px 12px; text-align: right;">
+          <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; ${
+            item.isOutOfStock
+              ? 'background-color: #fef2f2; color: #dc2626;'
+              : 'background-color: #fffbeb; color: #b45309;'
+          }">
+            ${item.isOutOfStock ? 'OUT OF STOCK' : `${item.currentQty} left (Min: ${item.threshold})`}
+          </span>
+        </td>
+      </tr>
+    `
+    )
+    .join('')
+
+  await transporter.sendMail({
+    from: `"${fromName}" <${process.env.SMTP_USER}>`,
+    to: toEmail,
+    subject: `[Grocery List] Restock Needed (${items.length} Items)`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #ffffff;">
+        <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 6px;">
+          🛒 Restock & Shopping List
+        </h2>
+        <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">
+          Sent by <strong>${senderName}</strong> from Inventory Management System.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+          <thead>
+            <tr style="background-color: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase;">
+              <th style="padding: 8px 12px;">Item</th>
+              <th style="padding: 8px 12px;">Location</th>
+              <th style="padding: 8px 12px; text-align: right;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+        <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+          This restock summary was generated manually on demand.
+        </p>
       </div>
     `,
   })

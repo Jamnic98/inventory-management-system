@@ -387,7 +387,7 @@ export default function ItemFormModal({
           </div>
 
           <div>
-            <label className="block font-medium text-slate-700 mb-1.5">Low Stock Alert Below</label>
+            <label className="block font-medium text-slate-700 mb-1.5">Low Stock Alert Count</label>
             <input
               type="number"
               min="0"
