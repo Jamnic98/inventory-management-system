@@ -79,7 +79,7 @@ export default function Locations() {
     return locations.find((loc) => String(loc.id) === String(selectedLocation.parentId)) || null
   }, [locations, selectedLocation])
 
-  // Direct child sub-locations
+  // Direct child storage areas
   const subLocations = useMemo(() => {
     if (!selectedLocation) return []
     return locations.filter((loc) => String(loc.parentId) === String(selectedLocation.id))
@@ -154,7 +154,7 @@ export default function Locations() {
           const errorMessage =
             err instanceof Error && err.message
               ? err.message
-              : 'Failed to delete location. Make sure it has no sub-locations or items first.'
+              : 'Failed to delete location. Make sure it has no storage areas or items first.'
           alert.error(errorMessage)
         },
       })

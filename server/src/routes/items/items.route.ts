@@ -2,7 +2,6 @@ import { Router } from 'express'
 
 import {
   getItems,
-  getArchivedItems,
   getItemByID,
   getItemByBarcode,
   addItem,
@@ -16,7 +15,6 @@ const router = Router()
 // Collection routes
 router.get('/', getItems)
 router.post('/', addItem)
-router.get('/archived', getArchivedItems)
 
 // Barcode route (place BEFORE /:id to prevent route conflicts)
 router.get('/barcode/:barcode', getItemByBarcode)

@@ -15,12 +15,9 @@ import type {
 export const getItems = async (params?: GetItemsParams): Promise<PaginatedResponse<Item>> => {
   return apiClient.get<PaginatedResponse<Item>>('/items', { params })
 }
+
 export const addItem = async (item: AddItemData): Promise<Item> => {
   return apiClient.post<Item>('/items', item)
-}
-
-export const getArchivedItems = async (): Promise<Item[]> => {
-  return apiClient.get<Item[]>('/items/archived')
 }
 
 // -----------------------------------------------------------------------------

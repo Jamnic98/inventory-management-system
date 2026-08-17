@@ -104,12 +104,12 @@ export default function LocationContent({
             </div>
           </div>
 
-          {/* Sub-Locations Section */}
+          {/* Storage Areas Section */}
           <div className="bg-white p-4 sm:p-5 rounded-lg border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs sm:text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                 <CornerDownRight className="w-4 h-4 text-gray-400" />
-                Sub-Locations ({subLocations.length})
+                Storage Areas ({subLocations.length})
               </h2>
               <button
                 onClick={handleAddSubLocation}
@@ -120,7 +120,7 @@ export default function LocationContent({
             </div>
 
             {subLocations.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">No nested sub-locations.</p>
+              <p className="text-xs text-gray-400 py-2">No nested storage areas.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                 {subLocations.map((sub) => (
@@ -196,7 +196,7 @@ export default function LocationContent({
         </div>
       ) : (
         <div className="h-full min-h-62.5 flex items-center justify-center text-gray-400 text-xs sm:text-sm">
-          Select a location from the left panel to manage sub-locations and inventory.
+          Select a location from the left panel to manage storage areas and inventory.
         </div>
       )}
     </div>

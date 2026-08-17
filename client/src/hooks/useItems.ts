@@ -4,7 +4,6 @@ import {
   addItem,
   addStockBatch,
   deleteItemById,
-  getArchivedItems,
   getItemByBarcode,
   getItemById,
   getItems,
@@ -55,16 +54,6 @@ export const useItem = (id?: number | string) => {
     queryKey: itemKeys.detail(id!),
     queryFn: () => getItemById(id!),
     enabled: Boolean(id),
-  })
-}
-
-/**
- * Fetch archived items
- */
-export const useArchivedItems = () => {
-  return useQuery<Item[]>({
-    queryKey: itemKeys.archived(),
-    queryFn: getArchivedItems,
   })
 }
 

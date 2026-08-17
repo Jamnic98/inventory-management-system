@@ -307,7 +307,7 @@ export const deleteLocationById = async (req: Request, res: Response): Promise<v
 
     if (childCount > 0) {
       res.status(400).json({
-        error: 'Cannot delete location that contains sub-locations',
+        error: 'Cannot delete location that contains storage areas',
       })
       return
     }

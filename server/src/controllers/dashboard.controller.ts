@@ -4,8 +4,16 @@ import prisma from '../db.js'
 import { sendRestockListEmail } from '../services/email.service.js'
 
 /**
+ * Helper to build consistent location scope filters across handlers
+ */
+function getLocationScopeFilter(scope: 'public' | 'private' | 'both') {
+  if (scope === 'public') return { isPrivate: false }
+  if (scope === 'private') return { isPrivate: true }
+  return undefined
+}
+
+/**
  * GET /api/dashboard
- * Fetch all dashboard widgets/lists for the authenticated user
  */
 export async function getDashboardHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -23,7 +31,6 @@ export async function getDashboardHandler(req: Request, res: Response, next: Nex
 
 /**
  * GET /api/dashboard/recipients
- * Fetch users who can receive notifications
  */
 export async function getRestockRecipientsHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -54,28 +61,24 @@ export async function sendRestockEmailHandler(req: Request, res: Response, next:
       return res.status(400).json({ message: 'At least one recipient is required.' })
     }
 
-    // 1. Fetch current user info for sender details
     const currentUser = await prisma.user.findUnique({ where: { id: userId } })
 
-    // 2. Fetch targeted recipients
     const recipients = await prisma.user.findMany({
       where: { id: { in: recipientIds } },
       select: { email: true },
     })
 
-    // 3. Build scope filter for items/locations
-    const locationScopeFilter =
-      scope === 'public' ? { isPrivate: false } : scope === 'private' ? { isPrivate: true } : {}
+    const locationFilter = getLocationScopeFilter(scope)
 
-    // 4. Query all items with stock filtered by scope and threshold
     const items = await prisma.item.findMany({
       where: {
-        userId,
-        lowStockThreshold: { not: null }, // Only items with explicit thresholds
+        // Include items owned by user or items in accessible locations
+        OR: [{ userId }, { userId: null }],
+        lowStockThreshold: { not: null },
       },
       include: {
         stocks: {
-          where: { location: locationScopeFilter },
+          where: locationFilter ? { location: locationFilter } : undefined,
           include: { location: { select: { label: true } } },
         },
       },
@@ -83,16 +86,22 @@ export async function sendRestockEmailHandler(req: Request, res: Response, next:
 
     const restockItems = items
       .map((item) => {
-        const totalQty = item.stocks.reduce((acc, s) => acc + s.quantity, 0)
-        const locationName = item.stocks[0]?.location?.label || 'General'
-        const threshold = item.lowStockThreshold!
+        // Calculate total stock across matching locations (fallback to item.quantity if direct field exists)
+        const totalQty =
+          item.stocks.length > 0
+            ? item.stocks.reduce((acc, s) => acc + s.quantity, 0)
+            : ((item as any).quantity ?? 0)
+
+        const locationName = item.stocks[0]?.location?.label || 'Unassigned'
+        const threshold = item.lowStockThreshold ?? 1
 
         return {
+          id: item.id,
           label: item.label,
           currentQty: totalQty,
           threshold,
           isOutOfStock: totalQty === 0,
-          needsRestock: totalQty <= threshold,
+          needsRestock: totalQty <= threshold, // ✅ Correct <= comparison
           locationName,
         }
       })
@@ -102,7 +111,6 @@ export async function sendRestockEmailHandler(req: Request, res: Response, next:
       return res.status(400).json({ message: 'No items matching criteria require restocking.' })
     }
 
-    // 5. Dispatch emails
     const senderName = currentUser?.name || currentUser?.email || 'A team member'
     const sendPromises = recipients
       .filter((r) => Boolean(r.email))
@@ -122,26 +130,17 @@ export async function sendRestockEmailHandler(req: Request, res: Response, next:
 /**
  * GET /api/dashboard/restock-preview?scope=public
  */
-/**
- * GET /api/dashboard/restock-preview?scope=public
- */
 export async function getRestockPreviewHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
 
     const scope = (req.query.scope as 'public' | 'private' | 'both') || 'public'
-
-    const locationFilter =
-      scope === 'public'
-        ? { userId: null }
-        : scope === 'private'
-          ? { userId: { not: null } }
-          : undefined
+    const locationFilter = getLocationScopeFilter(scope)
 
     const items = await prisma.item.findMany({
       where: {
-        userId,
+        OR: [{ userId }, { userId: null }],
         lowStockThreshold: { not: null },
       },
       include: {
@@ -155,17 +154,14 @@ export async function getRestockPreviewHandler(req: Request, res: Response, next
     })
 
     const restockItems = items
-      .filter((item) => {
-        // 1. If scope isn't 'both', exclude items that have no stocks in this scope
-        if (scope !== 'both' && item.stocks.length === 0) {
-          return false
-        }
-        return true
-      })
       .map((item) => {
-        const totalQty = item.stocks.reduce((acc, s) => acc + s.quantity, 0)
+        const totalQty =
+          item.stocks.length > 0
+            ? item.stocks.reduce((acc, s) => acc + s.quantity, 0)
+            : ((item as any).quantity ?? 0)
+
         const locationName = item.stocks[0]?.location?.label || 'Unassigned'
-        const threshold = item.lowStockThreshold!
+        const threshold = item.lowStockThreshold ?? 1
 
         return {
           id: item.id,

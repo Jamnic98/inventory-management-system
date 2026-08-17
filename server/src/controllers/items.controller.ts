@@ -18,31 +18,46 @@ const itemWithStocksInclude = {
 }
 
 /**
- * GET /items - Retrieve all active catalog items (deletedAt IS NULL)
- * Includes active stock batches and their locations.
+ * GET /items - Retrieve catalog items with dynamic filtering, sorting & pagination
  */
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = getCurrentUserId(req)
-    const { search, locationId, page: reqPage, limit: reqLimit } = req.query
+    const {
+      search,
+      locationId,
+      archivedStatus,
+      stockStatus,
+      expiryStatus,
+      sortBy,
+      sortOrder,
+      page: reqPage,
+      limit: reqLimit,
+    } = req.query
 
     // Sanitize pagination parameters
     const page = Math.max(1, parseInt(reqPage as string, 10) || 1)
     const limit = Math.max(1, Math.min(100, parseInt(reqLimit as string, 10) || 10))
     const skip = (page - 1) * limit
 
-    // Base ownership & active catalog filters
-    const conditions: Prisma.ItemWhereInput[] = [
-      { deletedAt: null },
-      {
-        OR: [
-          { userId: null }, // General / Household shared items
-          ...(currentUserId ? [{ userId: currentUserId }] : []),
-        ],
-      },
-    ]
+    const conditions: Prisma.ItemWhereInput[] = []
 
-    // Optional location filter (filters items having stock at this location)
+    // 1. Archive Status Filter
+    if (archivedStatus === 'archived') {
+      conditions.push({ deletedAt: { not: null } })
+    } else {
+      conditions.push({ deletedAt: null }) // Default: Active items only
+    }
+
+    // 2. Ownership / Permissions Filter
+    conditions.push({
+      OR: [
+        { userId: null }, // Shared / Household items
+        ...(currentUserId ? [{ userId: currentUserId }] : []),
+      ],
+    })
+
+    // 3. Location Filter
     if (locationId) {
       const parsedLocId = parseId(locationId)
       if (!isNaN(parsedLocId)) {
@@ -50,14 +65,14 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
           stocks: {
             some: {
               locationId: parsedLocId,
-              deletedAt: null,
+              deletedAt: archivedStatus === 'archived' ? undefined : null,
             },
           },
         })
       }
     }
 
-    // Search filter across label and barcode
+    // 4. Search Filter (Label or Barcode)
     if (search) {
       const searchStr = String(search).trim()
       if (searchStr) {
@@ -70,6 +85,35 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    // 5. Stock Status Filter (querying via stocks relation)
+    if (stockStatus === 'out_of_stock') {
+      conditions.push({
+        OR: [
+          { stocks: { none: {} } }, // Has no stock records at all
+          { stocks: { every: { quantity: { lte: 0 } } } }, // All stock batches are 0
+        ],
+      })
+    } else if (stockStatus === 'low_stock') {
+      conditions.push({
+        stocks: {
+          some: {
+            quantity: { gt: 0, lte: 2 }, // Stock batches with low remaining quantity
+            deletedAt: null,
+          },
+        },
+      })
+    }
+
+    // 7. Dynamic Sorting
+    // Note: 'quantity' is excluded from validSortFields if it's not a database column on Item
+    const validSortFields = ['label', 'createdAt']
+    const sortField = validSortFields.includes(sortBy as string) ? (sortBy as string) : 'createdAt'
+    const direction: 'asc' | 'desc' = sortOrder === 'asc' ? 'asc' : 'desc'
+
+    const orderBy: Prisma.ItemOrderByWithRelationInput = {
+      [sortField]: direction,
+    }
+
     const where: Prisma.ItemWhereInput = { AND: conditions }
 
     // Execute paginated findMany and total count concurrently
@@ -77,7 +121,7 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       prisma.item.findMany({
         where,
         include: itemWithStocksInclude,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -100,35 +144,6 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
   } catch (error: unknown) {
     console.error('Error fetching items:', error)
     handlePrismaError(error, res, 'Failed to retrieve items')
-  }
-}
-
-/**
- * GET /items/archived - Search soft-deleted catalog items
- */
-export const getArchivedItems = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const currentUserId = getCurrentUserId(req)
-    const { search } = req.query
-
-    const items = await prisma.item.findMany({
-      where: {
-        deletedAt: { not: null },
-        OR: [{ userId: null }, ...(currentUserId ? [{ userId: currentUserId }] : [])],
-        ...(search ? { label: { contains: String(search), mode: 'insensitive' } } : {}),
-      },
-      include: {
-        stocks: {
-          include: { location: true },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
-
-    res.status(200).json(items.map(enrichItem))
-  } catch (error: unknown) {
-    console.error('Error fetching archived items:', error)
-    handlePrismaError(error, res, 'Failed to retrieve archived items')
   }
 }
 
@@ -353,9 +368,6 @@ export const updateItemByID = async (
   }
 }
 
-/**
- * DELETE /items/:id - Soft delete catalog item AND all related stock batches
- */
 export const deleteItemByID = async (
   req: Request<{ id: string }>,
   res: Response
@@ -369,7 +381,7 @@ export const deleteItemByID = async (
 
     const now = new Date()
 
-    // Soft-delete catalog item AND set all related stock batches to deletedAt = NOW()
+    // Soft-delete item AND related stock batches without wiping quantities
     await prisma.$transaction([
       prisma.item.update({
         where: { id: itemId },
@@ -377,7 +389,7 @@ export const deleteItemByID = async (
       }),
       prisma.itemStock.updateMany({
         where: { itemId, deletedAt: null },
-        data: { deletedAt: now, quantity: 0 },
+        data: { deletedAt: now },
       }),
     ])
 

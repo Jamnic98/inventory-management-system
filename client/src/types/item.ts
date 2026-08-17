@@ -106,7 +106,17 @@ export interface GetItemsParams {
   page?: number
   limit?: number
   search?: string
-  locationId?: number
+  locationId?: number | null
+
+  // Filter fields
+  archivedStatus?: 'active' | 'archived'
+  stockStatus?: 'all' | 'low_stock' | 'out_of_stock'
+  expiryStatus?: 'all' | 'expiring_soon' | 'expired'
+  ownership?: 'all' | 'personal' | 'public'
+
+  // Sort fields
+  sortBy?: 'expirationDate' | 'label' | 'quantity' | 'createdAt'
+  sortOrder?: 'asc' | 'desc'
 }
 
 export interface UpdateItemParams {

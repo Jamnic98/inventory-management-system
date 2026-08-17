@@ -33,20 +33,15 @@ export default function ItemFilterBar({
   }
 
   const activeFilterCount = [
-    // Quick Filter Pills
-    filters.stockStatus !== 'all',
-    filters.expiryStatus !== 'all',
+    filters.stockStatus && filters.stockStatus !== 'all',
+    filters.expiryStatus && filters.expiryStatus !== 'all',
     filters.archivedStatus && filters.archivedStatus !== 'active',
-
-    // Advanced Dropdowns
-    filters.locationId !== null,
+    filters.locationId !== null && filters.locationId !== undefined,
     filters.ownership && filters.ownership !== 'all',
   ].filter(Boolean).length
 
-  // Check if ANY filter (including search) is currently active
   const hasActiveFilters = activeFilterCount > 0 || Boolean(filters.search?.trim())
 
-  // Location Options for CustomSelect
   const locationOptions: SelectOption<number | string>[] = useMemo(() => {
     return [
       { value: '', label: 'All Locations' },
@@ -59,25 +54,23 @@ export default function ItemFilterBar({
   }, [locations])
 
   const sortOptions: SelectOption[] = [
-    { value: 'expirationDate', label: 'Expiration' },
+    { value: 'createdAt', label: 'Date Added' },
     { value: 'label', label: 'Label' },
     { value: 'quantity', label: 'Quantity' },
-    { value: 'createdAt', label: 'Date Added' },
   ]
 
   return (
     <div className="flex flex-col gap-2 p-2.5 border border-gray-200 rounded-lg bg-white text-sm shadow-sm">
-      {/* Search Bar + Advanced Filters Toggle Button */}
+      {/* Search Bar + Filter Toggle */}
       <div className="flex items-center gap-2 w-full min-w-0">
         <input
           type="text"
-          placeholder="Search items by label..."
+          placeholder="Search items by label or barcode..."
           className="flex-1 min-w-0 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
           value={filters.search || ''}
           onChange={(e) => updateFilter('search', e.target.value)}
         />
 
-        {/* Filter Toggle Button showing TOTAL active filter count */}
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
@@ -102,7 +95,7 @@ export default function ItemFilterBar({
         </button>
       </div>
 
-      {/* Advanced Filter & Sort Controls (Dropdown Panel) */}
+      {/* Expanded Filter Panel */}
       {isExpanded && (
         <div className="space-y-3 pt-1">
           {/* Quick Filter Pills */}
@@ -211,9 +204,8 @@ export default function ItemFilterBar({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-200">
-            {/* FILTER DROPDOWNS */}
+            {/* Location Select */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:flex items-center gap-2 flex-1 min-w-0">
-              {/* Location Select */}
               <div className="w-full md:w-44 min-w-0">
                 <Select
                   options={locationOptions}
@@ -224,14 +216,14 @@ export default function ItemFilterBar({
               </div>
             </div>
 
-            {/* SORT CONTROLS */}
+            {/* Sort Controls */}
             <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-md border border-gray-200 shrink-0 w-full sm:w-auto">
               <span className="text-xs font-medium text-gray-500 pl-1.5 shrink-0">Sort:</span>
 
               <div className="w-32 min-w-0">
                 <Select
                   options={sortOptions}
-                  value={filters.sortBy || 'expirationDate'}
+                  value={filters.sortBy || 'createdAt'}
                   onChange={(val) => updateFilter('sortBy', val as ItemFilters['sortBy'])}
                   placeholder="Sort by"
                 />
@@ -249,7 +241,7 @@ export default function ItemFilterBar({
               </button>
             </div>
 
-            {/* RESET ACTION */}
+            {/* Reset Button */}
             {onReset && (
               <button
                 type="button"
