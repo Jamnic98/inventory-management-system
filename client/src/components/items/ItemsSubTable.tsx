@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Minus, PackageOpen, Plus } from 'lucide-react'
+import { ArrowRightLeft, Minus, PackageOpen, Plus, Trash2 } from 'lucide-react'
 
 import { Item, ItemStock } from '../../types'
 
@@ -11,6 +11,7 @@ interface ItemsSubTableProps {
   onUpdateBatchQuantity?: (stockId: number, newQuantity: number) => void
   onOpenBatchUnit: (stockId: number) => void
   onTransferBatch: (stock: ItemStock, parentItem: Item) => void
+  onDeleteBatch?: (stock: ItemStock) => void
 }
 
 export default function ItemsSubTable({
@@ -22,6 +23,7 @@ export default function ItemsSubTable({
   onUpdateBatchQuantity,
   onOpenBatchUnit,
   onTransferBatch,
+  onDeleteBatch,
 }: ItemsSubTableProps) {
   return (
     <tr className="bg-slate-50/80 border-b">
@@ -126,6 +128,18 @@ export default function ItemsSubTable({
                       >
                         <ArrowRightLeft className="w-3.5 h-3.5 text-gray-500" />
                         <span>Transfer</span>
+                      </button>
+                    )}
+
+                    {onDeleteBatch && (
+                      <button
+                        type="button"
+                        disabled={isArchived}
+                        onClick={() => onDeleteBatch(stock)}
+                        className="py-1.5 px-2 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors flex items-center justify-center"
+                        title="Delete batch"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       </button>
                     )}
                   </div>
@@ -237,6 +251,18 @@ export default function ItemsSubTable({
                               title="Transfer from this batch"
                             >
                               <ArrowRightLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {onDeleteBatch && (
+                            <button
+                              type="button"
+                              disabled={isArchived}
+                              onClick={() => onDeleteBatch(stock)}
+                              className="p-1 text-red-600 border border-red-200 bg-red-50/50 rounded hover:bg-red-100 hover:border-red-300 disabled:opacity-40 transition-colors"
+                              title="Delete batch"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
                             </button>
                           )}
                         </div>

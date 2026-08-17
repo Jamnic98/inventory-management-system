@@ -1,40 +1,29 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { itemKeys } from './useItems'
-
 export function useInventoryWebSocket() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    // 💡 Connect to /ws so Vite proxies wss://localhost:5173/ws -> ws://localhost:8080
+    // Connect through Vite proxy route
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/ws`
 
-    console.log('🔌 Connecting WebSocket via Vite proxy:', wsUrl)
     const ws = new WebSocket(wsUrl)
-
-    ws.onopen = () => console.log('✅ WebSocket Connected via Vite Proxy!')
-    ws.onerror = (err) => console.error('❌ WebSocket Error:', err)
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data)
+        const message = JSON.parse(event.data)
 
-        if (typeof data.type === 'string' && data.type.startsWith('item:')) {
-          console.log('🔄 Refetching items query cache...')
-          queryClient.invalidateQueries({
-            queryKey: itemKeys.all,
-            refetchType: 'all',
-          })
+        if (message.type?.startsWith('stock:') || message.type?.startsWith('item:')) {
+          queryClient.invalidateQueries({ queryKey: ['items'] })
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
         }
       } catch (err) {
-        console.error('Failed to parse WS event:', err)
+        console.error('Failed to parse WebSocket message:', err)
       }
     }
 
-    return () => {
-      ws.close()
-    }
+    return () => ws.close()
   }, [queryClient])
 }

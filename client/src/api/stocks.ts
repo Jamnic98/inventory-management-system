@@ -61,3 +61,11 @@ export const transferStock = transferBatch
 export const deleteStockBatch = async (stockId: number | string): Promise<void> => {
   await apiClient.delete(`/stocks/${stockId}`)
 }
+
+/**
+ * Restore a soft-deleted stock batch
+ * POST /stocks/:stockId/restore
+ */
+export const restoreStockBatch = async (stockId: number | string): Promise<ItemStock> => {
+  return apiClient.post<ItemStock>(`/stocks/${stockId}/restore`)
+}

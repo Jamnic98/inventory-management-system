@@ -401,9 +401,8 @@ export const deleteItemByID = async (
     handlePrismaError(error, res, 'Failed to delete item')
   }
 }
-
 /**
- * POST /items/:id/restore - Un-archive catalog item & restore active stock
+ * POST /items/:id/restore - Un-archive catalog item & restore associated stock
  */
 export const restoreItemByID = async (
   req: Request<{ id: string }>,
@@ -416,34 +415,40 @@ export const restoreItemByID = async (
       return
     }
 
-    // Safely fallback if req.body is undefined (e.g. from an Undo action)
-    const body = req.body || {}
-    const { quantity, locationId, expirationDate } = body
+    // 1. Fetch item to retrieve its deletedAt timestamp
+    const existingItem = await prisma.item.findUnique({
+      where: { id: itemId },
+      select: { id: true, deletedAt: true },
+    })
+
+    if (!existingItem) {
+      res.status(404).json({ error: 'Item not found' })
+      return
+    }
+
+    if (!existingItem.deletedAt) {
+      res.status(400).json({ error: 'Item is not archived' })
+      return
+    }
+
+    const archivedTimestamp = existingItem.deletedAt
 
     const restoredItem = await prisma.$transaction(async (tx) => {
-      // 1. Un-archive master catalog item
+      // 2. Un-archive master catalog item
       await tx.item.update({
         where: { id: itemId },
         data: { deletedAt: null },
       })
 
-      // 2. Un-archive all original stock batches associated with this item
+      // 3. Un-archive ONLY stock batches deleted during or after item deletion
+      // (Keeps batches deleted prior to archiving soft-deleted)
       await tx.itemStock.updateMany({
-        where: { itemId },
+        where: {
+          itemId,
+          deletedAt: { gte: archivedTimestamp },
+        },
         data: { deletedAt: null },
       })
-
-      // 3. Optional: If specific override parameters were provided in req.body, create/update stock
-      if (quantity !== undefined || locationId !== undefined || expirationDate !== undefined) {
-        await tx.itemStock.create({
-          data: {
-            itemId,
-            quantity: quantity !== undefined ? Number(quantity) : 1,
-            locationId: locationId ? Number(locationId) : null,
-            expirationDate: expirationDate ? new Date(expirationDate) : null,
-          },
-        })
-      }
 
       // 4. Return complete restored item with relations
       return tx.item.findUniqueOrThrow({

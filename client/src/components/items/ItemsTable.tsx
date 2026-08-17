@@ -21,6 +21,7 @@ interface ItemsTableProps {
   onTransferBatch: (stock: ItemStock, parentItem: Item) => void
   onRestore?: (id: number) => void
   initialPageSize?: number
+  onDeleteBatch?: (stock: ItemStock) => void
 }
 
 export default function ItemsTable({
@@ -36,6 +37,7 @@ export default function ItemsTable({
   onUpdateBatchQuantity,
   onOpenBatchUnit,
   onTransferBatch,
+  onDeleteBatch,
 }: ItemsTableProps) {
   const alert = useAlert()
   const { mutate: deleteItem } = useDeleteItem()
@@ -303,6 +305,7 @@ export default function ItemsTable({
                       onUpdateBatchQuantity={onUpdateBatchQuantity}
                       onOpenBatchUnit={onOpenBatchUnit}
                       onTransferBatch={onTransferBatch}
+                      onDeleteBatch={onDeleteBatch}
                     />
                   )}
                 </Fragment>

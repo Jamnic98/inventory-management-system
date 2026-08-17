@@ -83,43 +83,41 @@ export interface AddStockBatchData {
   openedOn?: string | Date | null
 }
 
-// -----------------------------------------------------------------------------
-// UI Filter & Sort State
-// -----------------------------------------------------------------------------
-export interface ItemFilters {
-  search: string
-  locationId: number | null
-  stockStatus: 'all' | 'low_stock' | 'out_of_stock'
-  expiryStatus: 'all' | 'expiring_soon' | 'expired'
-  archivedStatus?: 'active' | 'archived' | 'all'
-  ownership?: 'all' | 'personal' | 'shared'
-  sortBy: 'label' | 'expirationDate' | 'quantity' | 'createdAt'
-  sortOrder: 'asc' | 'desc'
-}
-
 export interface TransferItemPayload {
   targetLocationId: number
   quantity: number
 }
 
-export interface GetItemsParams {
-  page?: number
-  limit?: number
-  search?: string
-  locationId?: number | null
-
-  // Filter fields
-  archivedStatus?: 'active' | 'archived'
-  stockStatus?: 'all' | 'low_stock' | 'out_of_stock'
-  expiryStatus?: 'all' | 'expiring_soon' | 'expired'
-  ownership?: 'all' | 'personal' | 'public'
-
-  // Sort fields
-  sortBy?: 'expirationDate' | 'label' | 'quantity' | 'createdAt'
-  sortOrder?: 'asc' | 'desc'
-}
-
 export interface UpdateItemParams {
   itemId: number | string
   data: Partial<Item>
+}
+
+// -----------------------------------------------------------------------------
+// UI Filter & Sort State
+// -----------------------------------------------------------------------------
+// Shared Filter Option Types
+export type StockStatusFilter = 'all' | 'low_stock' | 'out_of_stock'
+export type ExpiryStatusFilter = 'all' | 'expiring_soon' | 'expired'
+export type ArchivedStatusFilter = 'active' | 'archived' | 'all'
+export type OwnershipFilter = 'all' | 'personal' | 'shared'
+export type SortByOption = 'label' | 'expirationDate' | 'quantity' | 'createdAt'
+export type SortOrder = 'asc' | 'desc'
+
+// UI State Filters (ItemFilterBar & Page state)
+export interface ItemFilters {
+  search: string
+  locationId: number | null
+  stockStatus: StockStatusFilter
+  expiryStatus: ExpiryStatusFilter
+  archivedStatus: ArchivedStatusFilter
+  ownership: OwnershipFilter
+  sortBy: SortByOption
+  sortOrder: SortOrder
+}
+
+// API Query Parameters (extending ItemFilters + pagination)
+export interface GetItemsParams extends Partial<ItemFilters> {
+  page?: number
+  limit?: number
 }

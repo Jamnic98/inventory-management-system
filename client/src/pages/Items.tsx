@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -10,7 +10,7 @@ import {
   ItemDetailsModal,
 } from '../components'
 import { getLocations } from '../api'
-import { useAuth, useBatchMutations, useItems, useUpdateItemQuantity } from '../hooks'
+import { useAlert, useAuth, useBatchMutations, useItems, useUpdateItemQuantity } from '../hooks'
 import type { Location, Item, ItemFilters, ItemStock } from '../types'
 
 const DEFAULT_FILTERS: ItemFilters = {
@@ -18,30 +18,23 @@ const DEFAULT_FILTERS: ItemFilters = {
   locationId: null,
   stockStatus: 'all',
   expiryStatus: 'all',
-  sortBy: 'label',
-  sortOrder: 'asc',
-}
-
-const getEffectiveExpiration = (item: Item): Date | null => {
-  let openExpiry: Date | null = null
-  if (item.openedOn && item.useWithinDays) {
-    openExpiry = new Date(item.openedOn)
-    openExpiry.setDate(openExpiry.getDate() + item.useWithinDays)
-  }
-
-  const hardExpiry = item.expirationDate ? new Date(item.expirationDate) : null
-
-  if (openExpiry && hardExpiry) {
-    return openExpiry < hardExpiry ? openExpiry : hardExpiry
-  }
-  return openExpiry || hardExpiry
+  archivedStatus: 'active',
+  ownership: 'all',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
 }
 
 export default function Items() {
+  const alert = useAlert()
   const { user } = useAuth()
   const currentUserId = user?.id
-  const { updateBatchQtyMutation, openBatchUnitMutation, transferBatchMutation } =
-    useBatchMutations()
+  const {
+    updateBatchQtyMutation,
+    openBatchUnitMutation,
+    transferBatchMutation,
+    deleteBatchMutation,
+    restoreBatchMutation,
+  } = useBatchMutations()
 
   // Pagination & Filter State
   const [page, setPage] = useState<number>(1)
@@ -56,23 +49,7 @@ export default function Items() {
   } | null>(null)
   const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
 
-  // Debounced search term for API queries
-  const [debouncedSearch, setDebouncedSearch] = useState(filters.search)
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(filters.search)
-    }, 300)
-
-    return () => clearTimeout(handler)
-  }, [filters.search])
-
-  // Reset to page 1 whenever debounced search changes
-  useEffect(() => {
-    setPage(1)
-  }, [debouncedSearch])
-
-  // Server-Paginated Items Query
+  // Server-Paginated & Filtered Items Query
   const {
     data,
     isLoading: isLoadingItems,
@@ -80,8 +57,7 @@ export default function Items() {
   } = useItems({
     page,
     limit: pageSize,
-    search: debouncedSearch,
-    locationId: filters.locationId ?? undefined,
+    ...filters,
   })
 
   const items = data?.data || []
@@ -99,7 +75,6 @@ export default function Items() {
     queryFn: getLocations,
   })
 
-  // Only block the UI on INITIAL load
   const isInitialLoad = (isLoadingItems && !data) || isLoadingLocations
 
   // Map locations by ID for quick table lookup
@@ -118,72 +93,6 @@ export default function Items() {
       .filter((loc): loc is Location & { id: number } => loc.id !== undefined)
       .map((loc) => ({ id: loc.id, label: loc.label }))
   }, [locations])
-
-  // Client-side filtering & sorting on current page dataset
-  const processedItems = useMemo(() => {
-    if (!items) return []
-
-    return items
-      .filter((item) => {
-        // Stock Status Filters
-        if (filters.stockStatus === 'low_stock') {
-          const isLow =
-            item.quantity != null &&
-            item.quantity > 0 &&
-            item.lowStockThreshold != null &&
-            item.quantity <= item.lowStockThreshold
-
-          if (!isLow) return false
-        }
-
-        if (filters.stockStatus === 'out_of_stock') {
-          const isOutOfStock = item.quantity == null || item.quantity === 0
-
-          if (!isOutOfStock) return false
-        }
-
-        // Expiry Status Filters
-        if (filters.expiryStatus !== 'all') {
-          const effExpiry = getEffectiveExpiration(item)
-          if (!effExpiry) return false
-
-          const now = new Date()
-          const diffDays = Math.ceil((effExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-
-          if (filters.expiryStatus === 'expired' && diffDays >= 0) return false
-          if (filters.expiryStatus === 'expiring_soon' && (diffDays < 0 || diffDays > 7)) {
-            return false
-          }
-        }
-
-        return true
-      })
-      .sort((a, b) => {
-        const order = filters.sortOrder === 'asc' ? 1 : -1
-
-        if (filters.sortBy === 'label') {
-          return (a.label || '').localeCompare(b.label || '') * order
-        }
-
-        if (filters.sortBy === 'quantity') {
-          return ((a.quantity || 0) - (b.quantity || 0)) * order
-        }
-
-        if (filters.sortBy === 'expirationDate') {
-          const dateA = getEffectiveExpiration(a)?.getTime() || Infinity
-          const dateB = getEffectiveExpiration(b)?.getTime() || Infinity
-          return (dateA - dateB) * order
-        }
-
-        if (filters.sortBy === 'createdAt') {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-          return (dateA - dateB) * order
-        }
-
-        return 0
-      })
-  }, [items, filters])
 
   // Handlers
   const handleFilterChange = (newFilters: ItemFilters) => {
@@ -212,6 +121,31 @@ export default function Items() {
       quantity: transferQty,
     })
     setTransferringStock(null)
+  }
+
+  const handleDeleteBatch = (stock: ItemStock) => {
+    if (!stock.id) return
+
+    deleteBatchMutation.mutate(stock.id, {
+      onSuccess: () => {
+        alert.success(`Stock batch deleted`, {
+          duration: 6000,
+          undoLabel: 'Undo',
+          onUndo: async () => {
+            try {
+              await restoreBatchMutation.mutateAsync(stock.id)
+              alert.success(`Stock batch restored`)
+            } catch (err) {
+              console.error('Failed to restore stock batch:', err)
+              alert.error('Failed to restore stock batch')
+            }
+          },
+        })
+      },
+      onError: () => {
+        alert.error('Failed to delete stock batch')
+      },
+    })
   }
 
   if (isInitialLoad) {
@@ -252,7 +186,7 @@ export default function Items() {
 
       {/* ITEMS TABLE */}
       <ItemsTable
-        items={processedItems}
+        items={items}
         totalItems={pagination?.totalItems || 0}
         currentPage={page}
         pageSize={pageSize}
@@ -267,6 +201,7 @@ export default function Items() {
         onSelectItem={(item: Item) => setSelectedItem(item)}
         onOpenBatchUnit={handleOpenBatchUnit}
         onTransferBatch={(stock, parentItem) => setTransferringStock({ stock, item: parentItem })}
+        onDeleteBatch={handleDeleteBatch}
       />
 
       {/* ADD ITEM MODAL */}
