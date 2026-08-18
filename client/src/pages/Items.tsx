@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
   ItemFormModal,
+  EditItemModal,
   ItemFilterBar,
   ItemsTable,
   ItemTransferModal,
@@ -43,6 +44,7 @@ export default function Items() {
 
   // Modal & Selected Item States
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [transferringStock, setTransferringStock] = useState<{
     stock: ItemStock
     item: Item
@@ -169,7 +171,7 @@ export default function Items() {
         <button
           type="button"
           onClick={() => setIsAddOpen(true)}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded shadow-sm transition-colors flex items-center gap-1"
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Item</span>
@@ -199,6 +201,7 @@ export default function Items() {
         onUpdateQuantity={handleUpdateQuantity}
         onUpdateBatchQuantity={handleUpdateBatchQuantity}
         onSelectItem={(item: Item) => setSelectedItem(item)}
+        onEditItem={(item: Item) => setEditingItem(item)}
         onOpenBatchUnit={handleOpenBatchUnit}
         onTransferBatch={(stock, parentItem) => setTransferringStock({ stock, item: parentItem })}
         onDeleteBatch={handleDeleteBatch}
@@ -212,6 +215,17 @@ export default function Items() {
           initialBarcode=""
           currentUserId={currentUserId}
           onClose={() => setIsAddOpen(false)}
+        />
+      )}
+
+      {/* EDIT ITEM MODAL */}
+      {editingItem && (
+        <EditItemModal
+          isOpen={Boolean(editingItem)}
+          item={editingItem}
+          locations={locations}
+          currentUserId={currentUserId}
+          onClose={() => setEditingItem(null)}
         />
       )}
 

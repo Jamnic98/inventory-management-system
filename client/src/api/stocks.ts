@@ -1,9 +1,20 @@
 import { apiClient } from '.'
-import type { ItemStock } from '../types'
+import type { Item, ItemStock } from '../types'
 
 export interface TransferStockPayload {
   targetLocationId: number
   quantity: number
+}
+
+/**
+ * Toggle or update the manual low stock status of a catalog item
+ * PATCH /items/:id
+ */
+export const toggleItemLowStock = async (
+  id: number | string,
+  isManuallyLowStock: boolean
+): Promise<Item> => {
+  return apiClient.patch<Item>(`/items/${id}`, { isManuallyLowStock })
 }
 
 /**

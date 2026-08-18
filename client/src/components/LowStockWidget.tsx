@@ -3,14 +3,7 @@ import { AlertTriangle, PackageX, ShoppingCart, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { SendRestockEmailModal } from '../components'
-
-export interface RestockItem {
-  id: number
-  label: string
-  currentQty: number
-  threshold: number
-  isOutOfStock: boolean
-}
+import { RestockItem } from '../types'
 
 interface LowStockWidgetProps {
   items: RestockItem[]
@@ -19,6 +12,8 @@ interface LowStockWidgetProps {
 
 export default function LowStockWidget({ items, currentUserId }: LowStockWidgetProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  console.log(items)
 
   return (
     <>
@@ -40,7 +35,7 @@ export default function LowStockWidget({ items, currentUserId }: LowStockWidgetP
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
                 >
                   <Mail className="h-3 w-3" /> Email List
                 </button>

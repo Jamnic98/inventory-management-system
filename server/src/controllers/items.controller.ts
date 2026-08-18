@@ -28,7 +28,6 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
       locationId,
       archivedStatus,
       stockStatus,
-      expiryStatus,
       sortBy,
       sortOrder,
       page: reqPage,
@@ -276,7 +275,8 @@ export const updateItemByID = async (
       openedOn,
       useWithinDays,
       lowStockThreshold,
-      stockId, // Optional: Target specific stock batch if provided
+      isManuallyLowStock,
+      stockId,
     } = req.body
 
     const updateData: Prisma.ItemUpdateInput = {}
@@ -290,6 +290,11 @@ export const updateItemByID = async (
       updateData.useWithinDays = useWithinDays !== null ? Number(useWithinDays) : null
     if (lowStockThreshold !== undefined)
       updateData.lowStockThreshold = lowStockThreshold !== null ? Number(lowStockThreshold) : null
+
+    // <-- 2. Update isManuallyLowStock flag
+    if (typeof isManuallyLowStock === 'boolean') {
+      updateData.isManuallyLowStock = isManuallyLowStock
+    }
 
     if (userId !== undefined) {
       updateData.user = userId !== null ? { connect: { id: Number(userId) } } : { disconnect: true }

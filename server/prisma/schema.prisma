@@ -107,6 +107,7 @@ model Item {
 
   // Global low stock threshold (evaluated across sum of all stocks)
   lowStockThreshold Int? @map("low_stock_threshold")
+  isManuallyLowStock Boolean @default(false) @map("is_manually_low_stock")
 
   // Default shelf-life rule: "Once opened, use within X days"
   useWithinDays Int? @map("use_within_days")

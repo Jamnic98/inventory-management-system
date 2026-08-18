@@ -146,7 +146,7 @@ export default function SendRestockEmailModal({
             </span>
           </div>
 
-          <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1.5">
+          <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1.5">
             {isLoadingPreview ? (
               <div className="p-3 text-center text-xs text-slate-400 flex justify-center items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" /> Updating

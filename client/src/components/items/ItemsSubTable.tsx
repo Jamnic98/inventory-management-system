@@ -47,9 +47,8 @@ export default function ItemsSubTable({
                   : 'Unassigned'
 
               const isOpened = Boolean(stock.openedOn)
-              const expDate = stock.expirationDate
-                ? new Date(stock.expirationDate).toLocaleDateString()
-                : 'N/A'
+              const expDate =
+                stock.expirationDate && new Date(stock.expirationDate).toLocaleDateString()
 
               return (
                 <div key={stock.id} className="p-3 space-y-2.5 bg-white">
@@ -73,9 +72,11 @@ export default function ItemsSubTable({
 
                   {/* Row 2: Expiry Date & Quantity Controls */}
                   <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-50">
-                    <div className="text-gray-500 text-[11px]">
-                      Expires: <span className="text-gray-700 font-medium">{expDate}</span>
-                    </div>
+                    {stock?.expirationDate ? (
+                      <div className="text-gray-500 text-[11px]">
+                        Expires: <span className="text-gray-700 font-medium">{expDate}</span>
+                      </div>
+                    ) : null}
 
                     <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded border">
                       <button

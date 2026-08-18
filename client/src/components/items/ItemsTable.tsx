@@ -1,8 +1,8 @@
 import { useState, Fragment } from 'react'
-import { Minus, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
+import { Minus, Plus, Trash2, Edit2, ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react'
 
 import { ItemsSubTable, Pagination } from '..'
-import { useAlert, useDeleteItem, useRestoreItem } from '../../hooks'
+import { useAlert, useDeleteItem, useRestoreItem, useToggleLowStock } from '../../hooks'
 import { getStatus } from '../../utils/itemHelpers'
 import type { Item, ItemStock } from '../../types'
 
@@ -16,6 +16,7 @@ interface ItemsTableProps {
   locationsMap: Record<number, string>
   onUpdateQuantity: (id: number, newQuantity: number) => void
   onSelectItem: (item: Item) => void
+  onEditItem?: (item: Item) => void
   onUpdateBatchQuantity?: (stockId: number, newQuantity: number) => void
   onOpenBatchUnit: (stockId: number) => void
   onTransferBatch: (stock: ItemStock, parentItem: Item) => void
@@ -33,6 +34,7 @@ export default function ItemsTable({
   onPageSizeChange,
   onUpdateQuantity,
   onSelectItem,
+  onEditItem,
   locationsMap = {},
   onUpdateBatchQuantity,
   onOpenBatchUnit,
@@ -42,6 +44,7 @@ export default function ItemsTable({
   const alert = useAlert()
   const { mutate: deleteItem } = useDeleteItem()
   const { mutateAsync: restoreItem } = useRestoreItem()
+  const { mutate: toggleLowStock } = useToggleLowStock()
 
   const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({})
   const totalPages = Math.ceil(totalItems / pageSize)
@@ -86,19 +89,6 @@ export default function ItemsTable({
     })
   }
 
-  const handleRestore = (item: Item) => {
-    if (!item.id) return
-
-    restoreItem(item.id, {
-      onSuccess: () => {
-        alert.success(`"${item.label || 'Item'}" restored`)
-      },
-      onError: () => {
-        alert.error('Failed to restore item')
-      },
-    })
-  }
-
   return (
     <>
       <div className="w-full border rounded bg-white shadow-sm overflow-hidden">
@@ -111,7 +101,7 @@ export default function ItemsTable({
               <th className="p-2 hidden sm:table-cell">Location</th>
               <th className="p-2 text-center w-28">Total Qty</th>
               <th className="p-2 hidden sm:table-cell">Status</th>
-              <th className="p-2 text-right w-12 sm:w-16">Actions</th>
+              <th className="p-2 text-right w-16 sm:w-20">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -122,12 +112,12 @@ export default function ItemsTable({
               const isArchived = Boolean(item.deletedAt)
               const isExpanded = Boolean(expandedIds[item.id])
               const stocks = item.stocks || []
-              // 🚀 Allow expanding whenever 1 or more batches exist
               const canExpand = stocks.length > 0
 
               const isLowStock =
-                item.isLowStock ??
-                (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)
+                (item.isLowStock ??
+                  (item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold)) ||
+                item.isManuallyLowStock
 
               const primaryLocationId = item.locationId || stocks[0]?.locationId
               const locationDisplay =
@@ -154,7 +144,7 @@ export default function ItemsTable({
                         <button
                           type="button"
                           onClick={() => toggleExpand(item.id!)}
-                          className="text-gray-500 hover:text-gray-800 p-1 rounded focus:outline-none text-xs"
+                          className="text-gray-500 hover:text-gray-800 p-1 rounded focus:outline-none text-xs cursor-pointer"
                           title={isExpanded ? 'Collapse batches' : 'Expand batches'}
                         >
                           {isExpanded ? (
@@ -183,7 +173,7 @@ export default function ItemsTable({
                           <button
                             type="button"
                             onClick={() => toggleExpand(item.id!)}
-                            className="text-gray-500 hover:text-gray-800 sm:hidden pr-1 focus:outline-none text-xs"
+                            className="text-gray-500 hover:text-gray-800 sm:hidden pr-1 focus:outline-none text-xs cursor-pointer"
                           >
                             {isExpanded ? (
                               <ChevronDown className="w-3.5 h-3.5 text-blue-600 inline" />
@@ -201,7 +191,7 @@ export default function ItemsTable({
                         )}
 
                         <span
-                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate block max-w-[150px] xs:max-w-[200px] sm:max-w-none"
+                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate block max-w-37.5 xs:max-w-[200px] sm:max-w-none"
                           onClick={() => onSelectItem(item)}
                           title={item.label || '-'}
                         >
@@ -216,7 +206,9 @@ export default function ItemsTable({
                         >
                           {status.label}
                         </span>
-                        <span className="text-xs text-gray-400 truncate">{locationDisplay}</span>
+                        <span className="text-xs text-gray-400 truncate max-w-28">
+                          {locationDisplay}
+                        </span>
                       </div>
                     </td>
 
@@ -225,12 +217,12 @@ export default function ItemsTable({
 
                     {/* Aggregate Inline Quantity Controls */}
                     <td className="p-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-0 sm:gap-1">
                         {item.stocks.length <= 1 && (
                           <button
                             type="button"
                             disabled={isArchived}
-                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             onClick={() =>
                               onUpdateQuantity(item.id!, Math.max(0, (item.quantity || 0) - 1))
                             }
@@ -250,7 +242,7 @@ export default function ItemsTable({
                           <button
                             type="button"
                             disabled={isArchived}
-                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-1.5 py-1 border rounded bg-gray-50 hover:bg-gray-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             onClick={() => onUpdateQuantity(item.id!, (item.quantity || 0) + 1)}
                             title="Add 1 unit"
                           >
@@ -261,7 +253,7 @@ export default function ItemsTable({
                     </td>
 
                     {/* Desktop Status Badge */}
-                    <td className="p-2 hidden sm:table-cell">
+                    <td className="p-2 hidden sm:table-cell min-w-16">
                       <span
                         className={`inline-block px-2 py-0.5 rounded font-semibold ${status.color} text-xs`}
                       >
@@ -272,29 +264,57 @@ export default function ItemsTable({
                     {/* Actions Column */}
                     <td className="p-2 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {isArchived ? (
-                          <button
-                            type="button"
-                            className="text-xs text-green-700 font-medium hover:underline cursor-pointer"
-                            onClick={() => handleRestore(item)}
-                          >
-                            Restore
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            title="Delete Item"
-                            className="p-1 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                            onClick={() => handleDelete(item)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                        {!isArchived && (
+                          <>
+                            {/* Toggle Manual Low Stock Flag */}
+                            <button
+                              type="button"
+                              title={
+                                item.isManuallyLowStock
+                                  ? 'Clear manual low stock flag'
+                                  : 'Mark as manually low stock'
+                              }
+                              className={`p-1 rounded transition-colors cursor-pointer ${
+                                item.isManuallyLowStock
+                                  ? 'text-amber-600 bg-amber-100 hover:bg-amber-200'
+                                  : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'
+                              }`}
+                              onClick={() =>
+                                toggleLowStock({
+                                  id: item.id!,
+                                  isManuallyLowStock: !item.isManuallyLowStock,
+                                })
+                              }
+                            >
+                              <AlertTriangle size={16} />
+                            </button>
+
+                            {onEditItem && (
+                              <button
+                                type="button"
+                                title="Edit Item"
+                                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                                onClick={() => onEditItem(item)}
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              title="Delete Item"
+                              className="p-1 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                              onClick={() => handleDelete(item)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
                   </tr>
 
-                  {/* 🚀 EXPANDABLE BATCH SUB-TABLE */}
+                  {/* EXPANDABLE BATCH SUB-TABLE */}
                   {canExpand && isExpanded && (
                     <ItemsSubTable
                       item={item}

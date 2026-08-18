@@ -28,6 +28,7 @@ export interface Item {
   barcode?: string | null
   useWithinDays?: number | null
   lowStockThreshold?: number | null
+  isManuallyLowStock: boolean
   userId?: number | null // null = shared, number = personal item
 
   deletedAt?: string | Date | null // null = active, timestamp = archived

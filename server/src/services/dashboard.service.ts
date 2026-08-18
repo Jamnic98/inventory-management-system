@@ -42,26 +42,43 @@ export async function getHomeDashboardData(userId: number) {
     .sort((a, b) => a.daysRemaining - b.daysRemaining)
 
   // 2. Quick Grocery / Restock List
-  // 2. Quick Grocery / Restock List
   const allItems = await prisma.item.findMany({
-    where: { userId },
-    include: { stocks: { select: { quantity: true } } },
+    where: {
+      deletedAt: null, // Ensure archived items aren't returned
+      OR: [
+        { userId },
+        { userId: null }, // Include shared/household items if applicable
+      ],
+    },
+    include: {
+      stocks: {
+        where: { deletedAt: null },
+        select: { quantity: true },
+      },
+    },
   })
 
   const restockList = allItems
-    // Ignore items that do not have an explicit lowStockThreshold set
-    .filter((item) => item.lowStockThreshold !== null && item.lowStockThreshold !== undefined)
     .map((item) => {
       const totalQty = item.stocks.reduce((acc, s) => acc + s.quantity, 0)
-      const threshold = item.lowStockThreshold!
+      const threshold = item.lowStockThreshold
+
+      // Check manual override first, fallback to threshold check
+      const needsRestock =
+        item.isManuallyLowStock === true ||
+        (item.isManuallyLowStock !== false &&
+          threshold !== null &&
+          threshold !== undefined &&
+          totalQty <= threshold)
 
       return {
         id: item.id,
         label: item.label,
         currentQty: totalQty,
         threshold,
+        isLowStock: item.isManuallyLowStock ?? false, // Include in payload
         isOutOfStock: totalQty === 0,
-        needsRestock: totalQty <= threshold,
+        needsRestock,
       }
     })
     .filter((item) => item.needsRestock)

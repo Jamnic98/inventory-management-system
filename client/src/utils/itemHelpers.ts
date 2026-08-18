@@ -45,7 +45,10 @@ export const getStatus = (item: Item) => {
   }
 
   const isLowStock =
-    item.lowStockThreshold != null && item.quantity > 0 && item.quantity <= item.lowStockThreshold
+    (item.lowStockThreshold != null &&
+      item.quantity > 0 &&
+      item.quantity <= item.lowStockThreshold) ||
+    item.isManuallyLowStock
 
   if (isLowStock) {
     return { label: 'Low', color: 'bg-yellow-100 text-yellow-800' }
