@@ -91,7 +91,7 @@ export default function ItemsTable({
 
   return (
     <>
-      <div className="w-full border rounded bg-white shadow-sm overflow-hidden">
+      <div className="w-full border rounded bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 border-b text-gray-700 text-xs">
             <tr>
