@@ -91,8 +91,9 @@ export default function ItemsTable({
 
   return (
     <>
+      {/* Scrollable Container with smooth scrolling and subtle shadow hint */}
       <div className="w-full border rounded bg-white shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-72 text-left text-sm">
           <thead className="bg-gray-50 border-b text-gray-700 text-xs">
             <tr>
               <th className="p-2 w-8 text-center hidden sm:table-cell" />
@@ -191,7 +192,7 @@ export default function ItemsTable({
                         )}
 
                         <span
-                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate block max-w-37.5 xs:max-w-[200px] sm:max-w-none"
+                          className="cursor-pointer hover:underline text-blue-600 font-semibold truncate block max-w-[200px] sm:max-w-none"
                           onClick={() => onSelectItem(item)}
                           title={item.label || '-'}
                         >
